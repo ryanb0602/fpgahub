@@ -7,6 +7,6 @@
 
 To start the backend, run:
 
-`docker compose \-v  up \--build`
+`docker compose -v  up --build`
 
 
