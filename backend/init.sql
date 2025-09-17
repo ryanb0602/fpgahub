@@ -8,5 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     two_fa_secret TEXT,
     two_fa_time TIMESTAMP,
-    verified BOOLEAN DEFAULT FALSE
+    verified BOOLEAN DEFAULT FALSE,
+    cli_token TEXT
 );
