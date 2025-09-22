@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
 const pool = require("./db");
 router.use(express.json());
@@ -72,8 +73,56 @@ router.post("/login", async (req, res) => {
 		console.log(err);
 	}
 
-	//req.session.userId = uuid;
+	req.session.userId = uuid;
 	res.json({ message: "Logged in successfully" });
+});
+
+router.post("/cli-token", async (req, res) => {
+	const { email, password } = req.body;
+	let uuid = null;
+
+	try {
+		const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+			email,
+		]);
+		const users = result.rows;
+
+		if (users.length < 1 || users.length > 1) {
+			return res.status(401).json({ message: "Invalid email or password" });
+		}
+
+		const user = users[0];
+
+		if (user.password === "") {
+			return res
+				.status(401)
+				.json({ message: "User account has yet to be activated" });
+		}
+
+		const valid = await bcrypt.compare(password, user.password);
+		if (!valid) {
+			return res.status(401).json({ message: "Invalid email or password" });
+		}
+
+		uuid = user.id;
+	} catch (err) {
+		console.log(err);
+	}
+
+	const cli_token = crypto.randomBytes(64).toString("hex");
+	const hashedToken = await bcrypt.hash(cli_token, 10);
+
+	try {
+		await pool.query("UPDATE users SET cli_token = $1 WHERE uuid = $2", [
+			hashedToken,
+			uuid,
+		]);
+	} catch (err) {
+		console.log(err);
+		return res.status(500).json({ message: "Internal server error" });
+	}
+
+	res.json({ message: "Issued token successfully", token: cli_token });
 });
 
 module.exports = router;
