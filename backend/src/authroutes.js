@@ -13,6 +13,23 @@ router.post("/register", async (req, res) => {
 		return res.status(400).json({ message: "All fields are required." });
 	}
 
+	// Email regex: simple, safe, max length 320 chars
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+	// Password regex: at least one lowercase, one uppercase, one number, one special char, 8-128 chars
+	const passwordRegex =
+		/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,128}$/;
+
+	if (!emailRegex.test(email)) {
+		return res.status(400).json({ message: "Invalid email format." });
+	}
+	if (!passwordRegex.test(password)) {
+		return res.status(400).json({
+			message:
+				"Password does not meet complexity requirements. Need one lowercase, one uppercase, one number, one special char, and atleast 8 characters.",
+		});
+	}
+
 	try {
 		const result = await pool.query("SELECT * FROM users WHERE email = $1", [
 			email,

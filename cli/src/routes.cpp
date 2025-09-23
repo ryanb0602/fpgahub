@@ -33,5 +33,5 @@ void loginUser_route(Authenticator &auth) {
   std::cout << "Enter Password: ";
   std::cin >> password;
 
-  auth.loginUser(email, password);
+  // auth.loginUser(email, password);
 }
