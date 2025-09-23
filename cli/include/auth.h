@@ -8,6 +8,7 @@ public:
   bool authenticate(std::string &username, std::string &password);
   bool registerUser(std::string &firstName, std::string &lastName,
                     std::string &email, std::string &password);
+  bool loginUser(std::string &username, std::string &password);
 
 private:
   bool pullAuthToken();

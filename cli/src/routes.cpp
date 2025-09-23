@@ -25,3 +25,13 @@ void registerUser_route(Authenticator &auth) {
 
   auth.registerUser(firstname, lastname, email, password);
 }
+
+void loginUser_route(Authenticator &auth) {
+  std::string email, password;
+  std::cout << "Enter Email: ";
+  std::cin >> email;
+  std::cout << "Enter Password: ";
+  std::cin >> password;
+
+  auth.loginUser(email, password);
+}

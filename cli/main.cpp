@@ -17,6 +17,10 @@ int main(int argc, char **argv) {
 
   registerUser->callback([&]() { registerUser_route(auth); });
 
+  auto loginUser = app.add_subcommand("login", "Login to an existing account.");
+
+  loginUser->callback([&]() { loginUser_route(auth); });
+
   CLI11_PARSE(app, argc, argv);
 
   return 0;
