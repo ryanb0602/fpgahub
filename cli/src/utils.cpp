@@ -38,3 +38,28 @@ bool save_token(std::string &token, std::string &app_name) {
   chmod(file_path.c_str(), S_IRUSR | S_IWUSR); // Set file permissions to 600
   return true;
 }
+
+bool load_token(std::string &token, std::string &app_name) {
+
+  std::string dir = xdg_state_home_dir(app_name);
+  std::string file_path = dir + "/token";
+  std::ifstream file(file_path);
+  if (!file.is_open()) {
+    return false;
+  }
+  std::getline(file, token);
+  file.close();
+  if (token.empty()) {
+    return false;
+  }
+  return true;
+}
+
+bool delete_token(std::string &app_name) {
+  std::string dir = xdg_state_home_dir(app_name);
+  std::string file_path = dir + "/token";
+  if (std::filesystem::exists(file_path)) {
+    std::filesystem::remove(file_path);
+  }
+  return true;
+}

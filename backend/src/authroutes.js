@@ -85,7 +85,7 @@ router.post("/login", async (req, res) => {
 			return res.status(401).json({ message: "Invalid email or password" });
 		}
 
-		uuid = user.id;
+		uuid = user.uuid;
 	} catch (err) {
 		console.log(err);
 	}
@@ -121,7 +121,7 @@ router.post("/cli-token", async (req, res) => {
 			return res.status(401).json({ message: "Invalid email or password" });
 		}
 
-		uuid = user.id;
+		uuid = user.uuid;
 	} catch (err) {
 		console.log(err);
 	}
@@ -139,7 +139,9 @@ router.post("/cli-token", async (req, res) => {
 		return res.status(500).json({ message: "Internal server error" });
 	}
 
-	res.json({ message: "Issued token successfully", token: cli_token });
+	const final_token = `${uuid}:::${cli_token}`;
+
+	res.json({ message: "Issued token successfully", token: final_token });
 });
 
 module.exports = router;

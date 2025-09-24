@@ -3,6 +3,6 @@
 
 #define API_BASE_URL "localhost"
 #define API_PORT 3000
-#define APP_NAME "VHDLHUB-CLI"
+#define APP_NAME "FPGAHUB-CLI"
 
 #endif

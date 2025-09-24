@@ -5,5 +5,6 @@
 
 void registerUser_route(Authenticator &auth);
 void loginUser_route(Authenticator &auth);
+void logoutUser_route(Authenticator &auth);
 
 #endif
