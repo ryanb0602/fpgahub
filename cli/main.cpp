@@ -2,6 +2,7 @@
 #include "./include/auth.h"
 #include "./include/cfg.h"
 #include "./include/routes.h"
+#include "./include/utils.h"
 #include <iostream>
 #include <ostream>
 #include <string>
