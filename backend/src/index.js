@@ -6,6 +6,7 @@ const session = require("express-session");
 const MemoryStore = require("memorystore")(session);
 
 const authRouter = require("./authroutes.js");
+const protectRoute = require("./middleware.js");
 
 app.use(
 	session({
@@ -26,7 +27,7 @@ app.use(
 
 app.use("/auth", authRouter);
 
-app.get("/", (req, res) => {
+app.get("/", protectRoute, (req, res) => {
 	res.send("Hello World!");
 });
 
