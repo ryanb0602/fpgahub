@@ -1,0 +1,99 @@
+#include "../include/filetracking.h"
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+
+FileTracker::FileTracker(const ::std::string &trackDir,
+                         const std::string &trackFile) {
+  this->directory = trackDir;
+  this->trackFile = trackFile;
+
+  std::string fullPath = directory + "/" + trackFile;
+
+  if (std::filesystem::exists(fullPath)) {
+    // Load existing tracking data
+    load_tracking();
+    std::cout << "loading tracking" << std::endl;
+  } else {
+    init_tracking();
+  }
+}
+
+FileTracker::~FileTracker() {
+  // save_tracking();
+}
+
+bool FileTracker::init_tracking() {
+  std::string fullPath = directory + "/" + trackFile;
+
+  std::filesystem::create_directories(directory);
+
+  std::ofstream ofs(fullPath.c_str());
+
+  if (!ofs) {
+    throw std::runtime_error("Failed to create tracking file: " + fullPath);
+    return false;
+  }
+
+  ofs.close();
+
+  return true;
+}
+
+bool FileTracker::load_tracking() {
+  std::string fullPath = directory + "/" + trackFile;
+
+  std::ifstream ifs(fullPath.c_str());
+  if (!ifs) {
+    throw std::runtime_error("Failed to open tracking file: " + fullPath);
+    return false;
+  }
+
+  std::string data_in;
+  std::getline(ifs, data_in);
+  ifs.close();
+  if (data_in.empty()) {
+    return true; // No data to load
+  }
+
+  while (!data_in.empty()) {
+    size_t pos = data_in.find(":::");
+    if (pos == std::string::npos) {
+      break;
+    }
+    std::string filename = data_in.substr(0, pos);
+    data_in.erase(0, pos + 3);
+
+    pos = data_in.find(":::");
+    if (pos == std::string::npos) {
+      throw std::runtime_error("Corrupted tracking data");
+    }
+    std::string stored_name = data_in.substr(0, pos);
+    data_in.erase(0, pos + 3);
+
+    pos = data_in.find(":::");
+    if (pos == std::string::npos) {
+      throw std::runtime_error("Corrupted tracking data");
+    }
+    std::string stored_time = data_in.substr(0, pos);
+    data_in.erase(0, pos + 3);
+
+    pos = data_in.find(":::");
+    if (pos == std::string::npos) {
+      throw std::runtime_error("Corrupted tracking data");
+    }
+    std::string hash = data_in.substr(0, pos);
+    data_in.erase(0, pos + 3);
+
+    TrackedFile tf{filename, stored_name, stored_time, hash};
+    tracked_files.push_back(tf);
+  }
+
+  for (const auto &file : tracked_files) {
+    std::cout << "Loaded: " << file.filename << ", " << file.stored_name << ", "
+              << file.stored_time << ", " << file.hash << std::endl;
+  }
+  return true;
+}

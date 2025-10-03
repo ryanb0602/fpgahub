@@ -1,6 +1,7 @@
 #include "./include/CLI11.hpp"
 #include "./include/auth.h"
 #include "./include/cfg.h"
+#include "./include/filetracking.h"
 #include "./include/routes.h"
 #include "./include/utils.h"
 #include <iostream>
@@ -23,6 +24,17 @@ int main(int argc, char **argv) {
   auto logoutUser =
       app.add_subcommand("logout", "Logout and clear authentication data.");
   logoutUser->callback([&]() { logoutUser_route(auth); });
+
+  /*
+
+route for init - create empty repo files
+route for add - catalog module files, what is main, etc
+route for commit - commit changes to local repo
+route for push - push changes to remote repo
+
+  */
+
+  FileTracker trackertest("./.fpgahub", "log");
 
   CLI11_PARSE(app, argc, argv);
 
