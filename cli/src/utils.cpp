@@ -1,4 +1,5 @@
 #include "../include/utils.h"
+#include "../include/sha256.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -62,4 +63,29 @@ bool delete_token(std::string &app_name) {
     std::filesystem::remove(file_path);
   }
   return true;
+}
+
+std::vector<std::string> list_files_recursive(const std::string &path) {
+  std::vector<std::string> files;
+  for (const auto &entry :
+       std::filesystem::recursive_directory_iterator(path)) {
+    if (entry.is_regular_file()) {
+      files.push_back(entry.path().string());
+    }
+  }
+  return files;
+}
+
+std::string hashFile(const std::string &path) {
+  SHA256 sha;
+  std::ifstream file(path, std::ios::binary);
+  if (!file)
+    return "";
+
+  char buffer[4096];
+  while (file.read(buffer, sizeof(buffer)))
+    sha.update(reinterpret_cast<uint8_t *>(buffer), file.gcount());
+  sha.update(reinterpret_cast<uint8_t *>(buffer), file.gcount());
+
+  return sha.final();
 }

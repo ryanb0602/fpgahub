@@ -14,6 +14,8 @@ int main(int argc, char **argv) {
 
   CLI::App app{"CLI tool to interface with the VHDLhub system."};
 
+  FileTracker tracker(HIDDEN_DIR_NAME, LOG_FILE_NAME);
+
   auto registerUser =
       app.add_subcommand("register", "Register new user for an account.");
   registerUser->callback([&]() { registerUser_route(auth); });
@@ -25,16 +27,8 @@ int main(int argc, char **argv) {
       app.add_subcommand("logout", "Logout and clear authentication data.");
   logoutUser->callback([&]() { logoutUser_route(auth); });
 
-  /*
-
-route for init - create empty repo files
-route for add - catalog module files, what is main, etc
-route for commit - commit changes to local repo
-route for push - push changes to remote repo
-
-  */
-
-  FileTracker trackertest("./.fpgahub", "log");
+  auto status = app.add_subcommand("status", "Check file change status.");
+  status->callback([&]() { status_route(tracker); });
 
   CLI11_PARSE(app, argc, argv);
 

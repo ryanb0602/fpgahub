@@ -1,4 +1,5 @@
 #include "../include/filetracking.h"
+#include "../include/utils.h"
 
 #include <filesystem>
 #include <fstream>
@@ -15,7 +16,6 @@ FileTracker::FileTracker(const ::std::string &trackDir,
   if (std::filesystem::exists(fullPath)) {
     // Load existing tracking data
     load_tracking();
-    std::cout << "loading tracking" << std::endl;
   } else {
     init_tracking();
   }
@@ -91,9 +91,40 @@ bool FileTracker::load_tracking() {
     tracked_files.push_back(tf);
   }
 
-  for (const auto &file : tracked_files) {
-    std::cout << "Loaded: " << file.filename << ", " << file.stored_name << ", "
-              << file.stored_time << ", " << file.hash << std::endl;
-  }
   return true;
+}
+
+std::vector<FileTracker::changeInfo> FileTracker::file_status() {
+  std::vector<FileTracker::changeInfo> changes;
+
+  std::string directory = "./";
+
+  std::vector<std::string> current_files = list_files_recursive(directory);
+
+  for (const auto &file : this->tracked_files) {
+    if (std::find(current_files.begin(), current_files.end(), file.filename) ==
+        current_files.end()) {
+      changes.push_back({file.filename, "deleted"});
+    } else {
+      // compute hash, compare
+      std::string current_hash = hashFile(file.filename);
+
+      if (current_hash != file.hash) {
+        changes.push_back({file.filename, "modified", file.hash, current_hash});
+      }
+
+      current_files.erase(std::remove(current_files.begin(),
+                                      current_files.end(), file.filename),
+                          current_files.end());
+    }
+  }
+
+  for (const auto &file : current_files) {
+    if (file.find("./.fpgahub") != std::string::npos) {
+      continue; // Skip internal tracking file
+    }
+    changes.push_back({file, "new"});
+  }
+
+  return changes;
 }

@@ -10,7 +10,14 @@ public:
   FileTracker(const std::string &trackDir, const std::string &trackFile);
   ~FileTracker();
 
-  bool file_status();
+  struct changeInfo {
+    std::string filename;
+    std::string change_type; //"new", "modified", "deleted"
+    std::string old_hash;
+    std::string new_hash;
+  };
+
+  std::vector<changeInfo> file_status();
 
 private:
   struct TrackedFile {

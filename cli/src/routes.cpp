@@ -56,3 +56,23 @@ void logoutUser_route(Authenticator &auth) {
   std::string empty_token;
   auth.storeAuthToken(empty_token);
 }
+
+void status_route(FileTracker &fileTracker) {
+  std::vector<FileTracker::changeInfo> changes = fileTracker.file_status();
+
+  if (changes.empty()) {
+    std::cout << GREEN << "No changes detected." << RESET << std::endl;
+    return;
+  }
+
+  for (const auto &change : changes) {
+    if (change.change_type == "new") {
+      std::cout << GREEN << "Added: " << change.filename << RESET << std::endl;
+    } else if (change.change_type == "modified") {
+      std::cout << YELLOW << "Modified: " << change.filename << RESET
+                << std::endl;
+    } else if (change.change_type == "deleted") {
+      std::cout << RED << "Deleted: " << change.filename << RESET << std::endl;
+    }
+  }
+}
