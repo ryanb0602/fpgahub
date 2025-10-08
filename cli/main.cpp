@@ -30,6 +30,9 @@ int main(int argc, char **argv) {
   auto status = app.add_subcommand("status", "Check file change status.");
   status->callback([&]() { status_route(tracker); });
 
+  auto commit = app.add_subcommand("commit", "Commit changes to the remote.");
+  commit->callback([&]() { commit_route(tracker, auth); });
+
   CLI11_PARSE(app, argc, argv);
 
   return 0;

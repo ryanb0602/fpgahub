@@ -7,6 +7,7 @@ const MemoryStore = require("memorystore")(session);
 
 const authRouter = require("./authroutes.js");
 const protectRoute = require("./middleware.js");
+const fileTracking = require("./filetracking.js");
 
 app.use(
 	session({
@@ -26,6 +27,8 @@ app.use(
 );
 
 app.use("/auth", authRouter);
+
+app.use("/ft", fileTracking);
 
 app.get("/", protectRoute, (req, res) => {
 	res.send("Hello World!");

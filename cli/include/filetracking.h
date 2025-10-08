@@ -1,6 +1,8 @@
 #include <string>
 #include <vector>
 
+#include "./auth.h"
+
 #ifndef FILETRACKING_H
 #define FILETRACKING_H
 
@@ -18,6 +20,8 @@ public:
   };
 
   std::vector<changeInfo> file_status();
+
+  bool commit(Authenticator &auth);
 
 private:
   struct TrackedFile {

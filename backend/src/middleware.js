@@ -33,7 +33,6 @@ async function protectRoute(req, res, next) {
 	const token = req.headers["x-fpgahub-cli-auth-token"];
 
 	let pass = false;
-
 	if (token) {
 		pass = await cli_token_check(token);
 	} else {

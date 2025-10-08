@@ -8,5 +8,6 @@ void registerUser_route(Authenticator &auth);
 void loginUser_route(Authenticator &auth);
 void logoutUser_route(Authenticator &auth);
 void status_route(FileTracker &fileTracker);
+void commit_route(FileTracker &fileTracker, Authenticator &auth);
 
 #endif

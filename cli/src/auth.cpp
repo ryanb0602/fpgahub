@@ -87,3 +87,14 @@ bool Authenticator::loginUser(std::string &username, std::string &password) {
     std::cerr << "Error: " << res.error() << std::endl;
   }
 }
+
+std::string Authenticator::pullAuthToken() {
+  if (this->authToken.empty()) {
+    std::string app_name = APP_NAME;
+    std::string token;
+    load_token(token, app_name);
+    this->storeAuthToken(token);
+    return token;
+  }
+  return this->authToken;
+}

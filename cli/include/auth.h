@@ -11,9 +11,9 @@ public:
   bool loginUser(std::string &username, std::string &password);
   bool storeAuthToken(std::string &token);
 
-private:
-  bool pullAuthToken();
+  std::string pullAuthToken();
 
+private:
   std::string authToken;
 };
 

@@ -1,4 +1,5 @@
 #include "../include/filetracking.h"
+#include "../include/auth.h"
 #include "../include/utils.h"
 
 #include <filesystem>
@@ -127,4 +128,22 @@ std::vector<FileTracker::changeInfo> FileTracker::file_status() {
   }
 
   return changes;
+}
+
+bool FileTracker::commit(Authenticator &auth) {
+  httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
+  // Custom headers
+  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
+
+  // Body of the POST request
+  std::string body = R"({"key": "value"})";
+
+  auto res = cli.Post("/ft/commit", headers, body, "application/json");
+
+  if (res) {
+    std::cout << "Status: " << res->status << "\n";
+    std::cout << "Body: " << res->body << "\n";
+  } else {
+    std::cout << "Request failed: " << res.error() << "\n";
+  }
 }
