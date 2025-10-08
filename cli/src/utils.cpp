@@ -3,7 +3,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <sys/stat.h>
+
 #include <unistd.h> // for getuid
 
 std::string xdg_state_home_dir(std::string &app_name) {
@@ -88,4 +91,10 @@ std::string hashFile(const std::string &path) {
   sha.update(reinterpret_cast<uint8_t *>(buffer), file.gcount());
 
   return sha.final();
+}
+
+std::string int_to_hex(int num) {
+  std::stringstream ss;
+  ss << std::hex << std::setw(2) << std::setfill('0') << (num & 0xFF);
+  return ss.str();
 }

@@ -131,14 +131,50 @@ std::vector<FileTracker::changeInfo> FileTracker::file_status() {
 }
 
 bool FileTracker::commit(Authenticator &auth) {
+
+  std::vector<FileTracker::changeInfo> changes = file_status();
+
+  if (changes.empty()) {
+    std::cout << "No changes detected.\n";
+    return true;
+  }
+
+  this->load_tracking();
+
+  for (const auto &change : changes) {
+    if (change.change_type == "deleted") {
+      this->tracked_files.erase(
+          std::remove_if(this->tracked_files.begin(), this->tracked_files.end(),
+                         [&](const TrackedFile &tf) {
+                           return tf.filename == change.filename;
+                         }),
+          this->tracked_files.end());
+    } else if (change.change_type == "modified") {
+      for (auto &tf : this->tracked_files) {
+        if (tf.filename == change.filename) {
+          tf.hash = change.new_hash;
+          tf.stored_time = "placeholder_time";
+          break;
+        }
+      }
+    } else if (change.change_type == "new") {
+      std::string new_hash = hashFile(change.filename);
+      TrackedFile new_tf{change.filename, change.filename, "placeholder_time",
+                         new_hash};
+      this->tracked_files.push_back(new_tf);
+    }
+  }
+
+  int file_n = 0;
+
+  std::string tracking = generate_tracking();
+
   httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
   // Custom headers
   httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
 
-  // Body of the POST request
-  std::string body = R"({"key": "value"})";
-
-  auto res = cli.Post("/ft/commit", headers, body, "application/json");
+  auto res = cli.Post("/ft/commit", headers, tracking.data(), tracking.size(),
+                      "application/octet-stream");
 
   if (res) {
     std::cout << "Status: " << res->status << "\n";
@@ -146,4 +182,32 @@ bool FileTracker::commit(Authenticator &auth) {
   } else {
     std::cout << "Request failed: " << res.error() << "\n";
   }
+}
+
+std::string FileTracker::generate_tracking() {
+  std::string tracking;
+  for (const auto &file : this->tracked_files) {
+    tracking += file.filename + ":::" + file.stored_name +
+                ":::" + file.stored_time + ":::" + file.hash + ":::";
+  }
+  return tracking;
+}
+
+bool FileTracker::save_tracking() {
+  std::string fullPath = directory + "/" + trackFile;
+
+  if (!std::filesystem::exists(fullPath)) {
+
+    init_tracking();
+  }
+  std::string tracking = generate_tracking();
+  std::ofstream ofs(fullPath.c_str(), std::ios::trunc);
+  if (!ofs) {
+    throw std::runtime_error("Failed to open tracking file for writing: " +
+                             fullPath);
+    return false;
+  }
+  ofs << tracking;
+  ofs.close();
+  return true;
 }

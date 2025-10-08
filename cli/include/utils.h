@@ -19,5 +19,6 @@ bool load_token(std::string &token, std::string &app_name);
 bool delete_token(std::string &app_name);
 std::vector<std::string> list_files_recursive(const std::string &path);
 std::string hashFile(const std::string &file_path);
+std::string int_to_hex(int num);
 
 #endif

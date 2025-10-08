@@ -38,6 +38,7 @@ private:
   bool init_tracking();
   bool load_tracking();
   bool save_tracking();
+  std::string generate_tracking();
 };
 
 #endif // FILETRACKING_H
