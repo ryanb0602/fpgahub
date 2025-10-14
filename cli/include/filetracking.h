@@ -39,6 +39,8 @@ private:
   bool load_tracking();
   bool save_tracking();
   std::string generate_tracking();
+
+  bool init_commit_transaction(Authenticator &auth, std::string &tracking);
 };
 
 #endif // FILETRACKING_H

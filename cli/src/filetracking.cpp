@@ -169,19 +169,12 @@ bool FileTracker::commit(Authenticator &auth) {
 
   std::string tracking = generate_tracking();
 
-  httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
-  // Custom headers
-  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
-
-  auto res = cli.Post("/ft/commit", headers, tracking.data(), tracking.size(),
-                      "application/octet-stream");
-
-  if (res) {
-    std::cout << "Status: " << res->status << "\n";
-    std::cout << "Body: " << res->body << "\n";
-  } else {
-    std::cout << "Request failed: " << res.error() << "\n";
+  if (!init_commit_transaction(auth, tracking)) {
+    std::cerr << "Failed to commit changes to remote server.\n";
+    return false;
   }
+
+  return true;
 }
 
 std::string FileTracker::generate_tracking() {
@@ -210,4 +203,27 @@ bool FileTracker::save_tracking() {
   ofs << tracking;
   ofs.close();
   return true;
+}
+
+bool FileTracker::init_commit_transaction(Authenticator &auth,
+                                          std::string &tracking) {
+  httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
+  // Custom headers
+  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
+
+  auto res = cli.Post("/ft/commit", headers, tracking.data(), tracking.size(),
+                      "application/octet-stream");
+
+  if (res) {
+    // std::cout << "Status: " << res->status << "\n";
+    // std::cout << "Body: " << res->body << "\n";
+    if (res->status == 200) {
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    // std::cout << "Request failed: " << res.error() << "\n";
+    return false;
+  }
 }
