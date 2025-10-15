@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Code } from "@radix-ui/themes";
 
 export default function CodeScrollText() {
 	const [scrollY, setScrollY] = useState(0);
@@ -15,6 +14,7 @@ export default function CodeScrollText() {
 		minHeight: "200vh",
 		display: "flex",
 		justifyContent: "center",
+		transform: `translateX(-${Math.min((scrollY / 100) * 9, 100)}%) translateY(${Math.min(scrollY * 0.8, 900)}px)`,
 	};
 
 	const windowStyle = {
@@ -29,7 +29,7 @@ export default function CodeScrollText() {
 
 	const codeStyle = {
 		position: "relative",
-		transform: `translateY(${-scrollY * 1.3}px)`,
+		transform: `translateY(${-scrollY * 0.8}px)`,
 		color: "#00ff66",
 		fontFamily: "monospace",
 		fontSize: "14px",

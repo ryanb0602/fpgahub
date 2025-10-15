@@ -3,11 +3,11 @@ import { Box, Heading, Section } from "@radix-ui/themes";
 
 import { WebsiteNavigator } from "../components/WebsiteNavigator";
 import CodeScrollText from "../components/CodeScrollText";
+import LandingPageBlurb from "../components/LandingPageBlurb";
 
 export const LandingPage = () => {
 	return (
 		<>
-			{" "}
 			<Box
 				width="20%"
 				style={{
@@ -33,7 +33,7 @@ export const LandingPage = () => {
 						alignItems: "center",
 					}}
 				>
-					<img src="/logo128.png" width="60%" height="60%" />
+					<img src="/logo128.png" width="60%" height="60%" alt="Logo" />
 				</Box>
 			</div>
 			<Section
@@ -53,6 +53,9 @@ export const LandingPage = () => {
 				</div>
 
 				<CodeScrollText />
+				<div style={{ marginTop: "90vh", paddingLeft: "20%", width: "50%" }}>
+					<LandingPageBlurb />
+				</div>
 			</Section>
 		</>
 	);
