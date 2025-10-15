@@ -32,10 +32,22 @@ export default function LandingPageBlurb() {
 				</Text>
 				<ul style={{ marginTop: "20px", lineHeight: "2", fontSize: "28px" }}>
 					<li>
-						<Text size="7">Test</Text>
+						<Text size="7">
+							Redeployable and reconfigurable; use FPGAHub to control your
+							organizations own private repo
+						</Text>
 					</li>
 					<li>
-						<Text size="7">Test</Text>
+						<Text size="7">
+							Easily find and reuse written modules and view them next to their
+							testbenches and documentation
+						</Text>
+					</li>
+					<li>
+						<Text size="7">
+							Open source and free to use; make an account and read the
+							documentation to get started
+						</Text>
 					</li>
 				</ul>
 			</Box>

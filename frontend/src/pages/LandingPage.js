@@ -4,6 +4,7 @@ import { Box, Heading, Section } from "@radix-ui/themes";
 import { WebsiteNavigator } from "../components/WebsiteNavigator";
 import CodeScrollText from "../components/CodeScrollText";
 import LandingPageBlurb from "../components/LandingPageBlurb";
+import DemoView from "../components/demoView";
 
 export const LandingPage = () => {
 	return (
@@ -57,6 +58,7 @@ export const LandingPage = () => {
 					<LandingPageBlurb />
 				</div>
 			</Section>
+			<DemoView />
 		</>
 	);
 };
