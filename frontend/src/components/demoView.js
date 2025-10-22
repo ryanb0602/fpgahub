@@ -7,82 +7,82 @@ import { monokai } from "@uiw/codemirror-theme-monokai";
 import { PlayIcon } from "@radix-ui/react-icons";
 
 export default function DemoView() {
-  const [terminalVal, setTerminalVal] = useState("");
+	const [terminalVal, setTerminalVal] = useState("");
 
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+	function sleep(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
 
-  async function simulateOutput() {
-    setTerminalVal("");
+	async function simulateOutput() {
+		setTerminalVal("");
 
-    await sleep(500);
+		await sleep(500);
 
-    setTerminalVal((prev) => prev + "Running...\n");
-    await sleep(1000);
+		setTerminalVal((prev) => prev + "Running...\n");
+		await sleep(1000);
 
-    setTerminalVal(
-      (prev) => prev + "testbench.vhd:48:5:@25ns:(assertion note): Test done.",
-    );
-  }
+		setTerminalVal(
+			(prev) => prev + "testbench.vhd:48:5:@25ns:(assertion note): Test done.",
+		);
+	}
 
-  return (
-    <>
-      <Section style={{ marginTop: "-400px" }}>
-        <Section
-          style={{
-            width: "100%",
-            height: "100px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Heading size="7">Preview Module Viewer!</Heading>
-        </Section>
-        <Section
-          style={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
-          }}
-        >
-          <Card
-            style={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                width: "20%",
-                display: "flex",
-                flexDirection: "row",
-                alignContent: "center",
-                paddingBottom: "10px",
-              }}
-            >
-              <Button variant="primary" size="2" onClick={simulateOutput}>
-                <PlayIcon />
-              </Button>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                gap: "10px",
-                width: "100%",
-              }}
-            >
-              <CodeMirror
-                style={{ width: "50%" }}
-                height="70vh"
-                extensions={[StreamLanguage.define(vhdl)]}
-                editable={false}
-                theme={monokai}
-                value={`library IEEE;
+	return (
+		<>
+			<Section
+				style={{
+					width: "100%",
+					height: "100px",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					marginTop: "-30vh",
+				}}
+			>
+				<Heading size="7">Preview Module Viewer!</Heading>
+			</Section>
+			<Section
+				style={{
+					width: "100%",
+					display: "flex",
+					flexDirection: "row",
+					justifyContent: "space-between",
+				}}
+			>
+				<Card
+					style={{
+						width: "100%",
+						display: "flex",
+						flexDirection: "column",
+					}}
+				>
+					<div
+						style={{
+							width: "20%",
+							display: "flex",
+							flexDirection: "row",
+							alignContent: "center",
+							paddingBottom: "10px",
+						}}
+					>
+						<Button variant="primary" size="2" onClick={simulateOutput}>
+							<PlayIcon />
+						</Button>
+					</div>
+					<div
+						style={{
+							display: "flex",
+							flexDirection: "row",
+							gap: "10px",
+							width: "100%",
+						}}
+					>
+						<CodeMirror
+							style={{ width: "50%" }}
+							height="70vh"
+							extensions={[StreamLanguage.define(vhdl)]}
+							editable={false}
+							theme={monokai}
+							value={`library IEEE;
 use IEEE.std_logic_1164.all;
 
 entity full_adder is
@@ -99,14 +99,14 @@ begin
     Cout <= (A and B) or (A and Cin) or (B and Cin);
 
 end architecture Behavioral;`}
-              />
-              <CodeMirror
-                style={{ width: "50%" }}
-                height="70vh"
-                extensions={[StreamLanguage.define(vhdl)]}
-                editable={false}
-                theme={monokai}
-                value={`library IEEE;
+						/>
+						<CodeMirror
+							style={{ width: "50%" }}
+							height="70vh"
+							extensions={[StreamLanguage.define(vhdl)]}
+							editable={false}
+							theme={monokai}
+							value={`library IEEE;
 use IEEE.std_logic_1164.all;
 
 entity testbench is
@@ -159,24 +159,23 @@ begin
 
 end tb;
 `}
-              />
-            </div>
-            <div style={{ height: "10px" }} />
-            <CodeMirror
-              style={{ width: "100%" }}
-              height="20vh"
-              extensions={[]}
-              editable={false}
-              theme={monokai}
-              basicSetup={{
-                lineNumbers: false,
-                highlightActiveLine: false,
-              }}
-              value={terminalVal}
-            />
-          </Card>
-        </Section>
-      </Section>
-    </>
-  );
+						/>
+					</div>
+					<div style={{ height: "10px" }} />
+					<CodeMirror
+						style={{ width: "100%" }}
+						height="20vh"
+						extensions={[]}
+						editable={false}
+						theme={monokai}
+						basicSetup={{
+							lineNumbers: false,
+							highlightActiveLine: false,
+						}}
+						value={terminalVal}
+					/>
+				</Card>
+			</Section>
+		</>
+	);
 }
