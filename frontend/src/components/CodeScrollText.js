@@ -30,7 +30,7 @@ export default function CodeScrollText() {
 	const codeStyle = {
 		position: "relative",
 		transform: `translateY(${-scrollY * 0.8}px)`,
-		color: "#00ff66",
+		color: "orange",
 		fontFamily: "monospace",
 		fontSize: "14px",
 		lineHeight: "1.4em",

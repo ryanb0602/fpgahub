@@ -18,15 +18,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 			{/* Wrap future providers here */}
 			{/* <AuthProvider> */}
 			<Theme
-				accentColor="#DC602E"
-				grayColor="#6C6C6C"
-				background="#111111"
+				accentColor="orange"
+				grayColor="gray"
+				background="dark"
 				radius="large"
 				scaling="95%"
 				panelBackground="translucent"
 				appearance="dark"
 			>
-				<App />
+				<div
+					style={{
+						minHeight: "100vh",
+						background: "linear-gradient(0deg, #111111 0%, #DC602E 150%)",
+					}}
+				>
+					<App />
+				</div>
 			</Theme>
 			{/* </AuthProvider> */}
 		</BrowserRouter>
