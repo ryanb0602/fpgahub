@@ -12,14 +12,14 @@ export const LandingPage = () => {
 			<Box
 				width="20%"
 				style={{
+					position: "fixed",
+					top: "20px",
+					right: "25px",
 					display: "flex",
-					justifyContent: "center", // horizontal center
+					justifyContent: "center",
 					alignItems: "center",
-					marginLeft: "auto",
 					zIndex: 9999,
 				}}
-				position="sticky"
-				top="20px"
 			>
 				<WebsiteNavigator />
 			</Box>
