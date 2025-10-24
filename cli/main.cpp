@@ -2,6 +2,7 @@
 #include "./include/auth.h"
 #include "./include/cfg.h"
 #include "./include/filetracking.h"
+#include "./include/module_tree_builder.h"
 #include "./include/routes.h"
 #include "./include/utils.h"
 #include <iostream>
@@ -34,6 +35,9 @@ int main(int argc, char **argv) {
   commit->callback([&]() { commit_route(tracker, auth); });
 
   CLI11_PARSE(app, argc, argv);
+
+  ModuleTreeBuilder builder;
+  builder.buildTree();
 
   return 0;
 }
