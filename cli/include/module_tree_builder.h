@@ -8,9 +8,11 @@ class ModuleTreeBuilder {
 
 public:
   // ModuleTreeBuilder();
-  //~ModuleTreeBuilder();
+  ~ModuleTreeBuilder();
 
   void buildTree();
+
+  void printRoots();
 
 private:
   struct moduleNode {
@@ -20,6 +22,7 @@ private:
   };
 
   std::vector<moduleNode *> root;
+  std::vector<moduleNode *> allModules;
 
   void scanFile(const std::string &filePath);
 
@@ -27,6 +30,10 @@ private:
                                 size_t &pos_next);
 
   std::vector<std::string> extractDepends(const std::string &moduleText);
+
+  std::vector<moduleNode *> findRoots();
+
+  void printTree(moduleNode *node, int depth);
 };
 
 #endif // MODULE_TREE_BUILDER_H

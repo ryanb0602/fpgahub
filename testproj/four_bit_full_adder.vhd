@@ -25,7 +25,7 @@ architecture Structural of four_bit_full_adder is
 
 begin
 
-    -- Instantiate the full_adder component.
+    -- Instantiate the full_adder component
     U1: full_adder port map (
         A    => input_one(0),
         B    => input_two(0),

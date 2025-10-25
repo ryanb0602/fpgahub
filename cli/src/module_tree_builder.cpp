@@ -1,9 +1,16 @@
 #include "../include/module_tree_builder.h"
 #include "../include/utils.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+ModuleTreeBuilder::~ModuleTreeBuilder() {
+  for (auto node : allModules) {
+    delete node;
+  }
+}
 
 void ModuleTreeBuilder::buildTree() {
 
@@ -14,6 +21,12 @@ void ModuleTreeBuilder::buildTree() {
   for (const auto &file : current_files) {
     scanFile(file);
   }
+
+  // find roots
+  this->root = findRoots();
+
+  // print the tree
+  this->printTree(this->root[0], 0);
 }
 
 void ModuleTreeBuilder::scanFile(const std::string &filePath) {
@@ -37,9 +50,41 @@ void ModuleTreeBuilder::scanFile(const std::string &filePath) {
   while (next_pos != std::string::npos) {
     running_text = running_text.substr(next_pos);
     std::string module_text = extractModuleText(running_text, next_pos);
-
+    size_t module_text_name_end = module_text.find(" ", 7);
+    ;
+    std::string module_name = module_text.substr(7, module_text_name_end - 7);
     // extract modules
     std::vector<std::string> dependencies = extractDepends(module_text);
+
+    ModuleTreeBuilder::moduleNode *currentNode = nullptr;
+    // insert into tree
+    for (const auto &node : this->allModules) {
+      if (node->moduleName == module_name) {
+        currentNode = node;
+        break;
+      }
+    }
+    if (currentNode == nullptr) {
+      currentNode = new ModuleTreeBuilder::moduleNode;
+      currentNode->moduleName = module_name;
+      this->allModules.push_back(currentNode);
+    }
+
+    for (const auto &dep : dependencies) {
+      ModuleTreeBuilder::moduleNode *depNode = nullptr;
+      for (const auto &node : this->allModules) {
+        if (node->moduleName == dep) {
+          depNode = node;
+          break;
+        }
+      }
+      if (depNode == nullptr) {
+        depNode = new ModuleTreeBuilder::moduleNode;
+        depNode->moduleName = dep;
+        this->allModules.push_back(depNode);
+      }
+      currentNode->children.push_back(depNode);
+    }
   }
 }
 
@@ -76,7 +121,8 @@ ModuleTreeBuilder::extractDepends(const std::string &moduleText) {
   while (current_pos != std::string::npos) {
     current_pos = current_string.find("component ");
     if (current_pos != std::string::npos) {
-      size_t name_end = current_string.find(" ", current_pos + 10);
+      size_t name_end = std::min(current_string.find(" ", current_pos + 10),
+                                 current_string.find("\n", current_pos + 10));
       if (name_end != std::string::npos) {
         found_module = current_string.substr(current_pos + 10,
                                              name_end - (current_pos + 10));
@@ -91,4 +137,51 @@ ModuleTreeBuilder::extractDepends(const std::string &moduleText) {
     }
   }
   return dependencies;
+}
+
+std::vector<ModuleTreeBuilder::moduleNode *> ModuleTreeBuilder::findRoots() {
+  std::unordered_set<ModuleTreeBuilder::moduleNode *> allChildren;
+
+  // Collect all nodes that are referenced as children
+  for (const auto &node : this->allModules) {
+    for (const auto &child : node->children) {
+      allChildren.insert(child);
+    }
+  }
+
+  // Any node not in 'allChildren' is a root
+  std::vector<ModuleTreeBuilder::moduleNode *> roots;
+  for (const auto &node : this->allModules) {
+    if (allChildren.find(node) == allChildren.end()) {
+      roots.push_back(node);
+    }
+  }
+  return roots;
+}
+
+void ModuleTreeBuilder::printRoots() {
+
+  for (const auto &node : this->root) {
+    std::cout << "Root Module: " << node->moduleName << std::endl;
+  }
+}
+
+void ModuleTreeBuilder::printTree(ModuleTreeBuilder::moduleNode *node,
+                                  int depth) {
+  if (node == nullptr) {
+    return;
+  }
+
+  // Print indentation based on depth
+  for (int i = 0; i < depth; ++i) {
+    std::cout << "--";
+  }
+
+  // Print the module name
+  std::cout << node->moduleName << std::endl;
+
+  // Recursively print each child
+  for (const auto &child : node->children) {
+    printTree(child, depth + 1);
+  }
 }
