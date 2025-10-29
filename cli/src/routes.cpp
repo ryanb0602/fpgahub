@@ -77,9 +77,10 @@ void status_route(FileTracker &fileTracker) {
   }
 }
 
-void commit_route(FileTracker &fileTracker, Authenticator &auth) {
+void commit_route(FileTracker &fileTracker, Authenticator &auth,
+                  ModuleTreeBuilder &moduleTreeBuilder) {
 
   // module tracking
 
-  fileTracker.commit(auth);
+  fileTracker.commit(auth, moduleTreeBuilder);
 }

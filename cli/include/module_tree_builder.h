@@ -1,3 +1,4 @@
+#include <map>
 #include <string>
 #include <vector>
 
@@ -7,12 +8,21 @@
 class ModuleTreeBuilder {
 
 public:
+  struct linkMapEntry {
+    std::string filename;
+    std::vector<std::string> depends;
+  };
+
   // ModuleTreeBuilder();
   ~ModuleTreeBuilder();
 
   void buildTree();
 
   void printRoots();
+
+  void printTreeWrapper();
+
+  std::map<std::string, linkMapEntry> getModuleLinks();
 
 private:
   struct moduleNode {

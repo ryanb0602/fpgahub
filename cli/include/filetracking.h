@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "./auth.h"
+#include "./module_tree_builder.h"
 
 #ifndef FILETRACKING_H
 #define FILETRACKING_H
@@ -21,7 +22,7 @@ public:
 
   std::vector<changeInfo> file_status();
 
-  bool commit(Authenticator &auth);
+  bool commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder);
 
 private:
   struct TrackedFile {
@@ -41,6 +42,9 @@ private:
   std::string generate_tracking();
 
   bool init_commit_transaction(Authenticator &auth, std::string &tracking);
+  bool send_modules();
+
+  ModuleTreeBuilder *builder;
 };
 
 #endif // FILETRACKING_H

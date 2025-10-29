@@ -24,9 +24,6 @@ void ModuleTreeBuilder::buildTree() {
 
   // find roots
   this->root = findRoots();
-
-  // print the tree
-  this->printTree(this->root[0], 0);
 }
 
 void ModuleTreeBuilder::scanFile(const std::string &filePath) {
@@ -184,4 +181,33 @@ void ModuleTreeBuilder::printTree(ModuleTreeBuilder::moduleNode *node,
   for (const auto &child : node->children) {
     printTree(child, depth + 1);
   }
+}
+
+void ModuleTreeBuilder::printTreeWrapper() {
+  for (const auto &rootNode : this->root) {
+    printTree(rootNode, 0);
+  }
+}
+
+std::map<std::string, ModuleTreeBuilder::linkMapEntry>
+ModuleTreeBuilder::getModuleLinks() {
+  std::map<std::string, ModuleTreeBuilder::linkMapEntry> linkMap;
+  for (const auto *node : this->allModules) {
+
+    if (!node) {
+      continue;
+    }
+
+    std::string module_name = node->moduleName;
+
+    ModuleTreeBuilder::linkMapEntry entry;
+    entry.filename = node->container_filename;
+    for (const auto *child : node->children) {
+      if (child) {
+        entry.depends.push_back(child->moduleName);
+      }
+    }
+    linkMap[module_name] = entry;
+  }
+  return linkMap;
 }

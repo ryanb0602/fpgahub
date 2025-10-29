@@ -5,13 +5,12 @@
 #include "./include/module_tree_builder.h"
 #include "./include/routes.h"
 #include "./include/utils.h"
-#include <iostream>
-#include <ostream>
 #include <string>
 
 int main(int argc, char **argv) {
 
   Authenticator auth;
+  ModuleTreeBuilder builder;
 
   CLI::App app{"CLI tool to interface with the VHDLhub system."};
 
@@ -32,12 +31,22 @@ int main(int argc, char **argv) {
   status->callback([&]() { status_route(tracker); });
 
   auto commit = app.add_subcommand("commit", "Commit changes to the remote.");
-  commit->callback([&]() { commit_route(tracker, auth); });
+  commit->callback([&]() { commit_route(tracker, auth, builder); });
+
+  auto printTree = app.add_subcommand("module-tree", "Print the module tree.");
+  printTree->callback([&]() {
+    builder.buildTree();
+    builder.printTreeWrapper();
+  });
+
+  auto printRoots =
+      app.add_subcommand("module-roots", "Print the module roots.");
+  printRoots->callback([&]() {
+    builder.buildTree();
+    builder.printRoots();
+  });
 
   CLI11_PARSE(app, argc, argv);
-
-  ModuleTreeBuilder builder;
-  builder.buildTree();
 
   return 0;
 }

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <string>
 
 FileTracker::FileTracker(const ::std::string &trackDir,
@@ -130,9 +131,11 @@ std::vector<FileTracker::changeInfo> FileTracker::file_status() {
   return changes;
 }
 
-bool FileTracker::commit(Authenticator &auth) {
+bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
 
   std::vector<FileTracker::changeInfo> changes = file_status();
+
+  this->builder = &treeBuilder;
 
   if (changes.empty()) {
     std::cout << "No changes detected.\n";
@@ -175,6 +178,7 @@ bool FileTracker::commit(Authenticator &auth) {
   }
 
   // module send
+  this->send_modules();
   // file send
   // save tracking this side
 
@@ -230,4 +234,35 @@ bool FileTracker::init_commit_transaction(Authenticator &auth,
     // std::cout << "Request failed: " << res.error() << "\n";
     return false;
   }
+}
+
+bool FileTracker::send_modules() {
+  this->builder->buildTree();
+  std::map<std::string, ModuleTreeBuilder::linkMapEntry> link_map =
+      this->builder->getModuleLinks();
+
+  std::map<std::string, std::string> file_hash_to_module_name;
+
+  std::string module_links = "";
+
+  for (const auto &entry : link_map) {
+    std::string module_name = entry.first;
+    ModuleTreeBuilder::linkMapEntry module_entry = entry.second;
+    std::string module_filename = module_entry.filename;
+
+    for (const auto &file : this->tracked_files) {
+      if (file.filename == module_filename) {
+        file_hash_to_module_name[file.hash] = module_name;
+        break;
+      }
+    }
+
+    module_links += ":::" + module_name + ":::";
+    for (const auto &dep : module_entry.depends) {
+      module_links += dep + ":::";
+    }
+  }
+  std::cout << module_links << std::endl;
+
+  return true;
 }
