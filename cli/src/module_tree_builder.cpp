@@ -41,7 +41,6 @@ void ModuleTreeBuilder::scanFile(const std::string &filePath) {
   buffer << file.rdbuf();
   std::string fileContent = buffer.str();
 
-  // find each module listed in a file, get the dependencies
   size_t next_pos = 0;
   std::string running_text = fileContent;
   while (next_pos != std::string::npos) {
@@ -58,12 +57,16 @@ void ModuleTreeBuilder::scanFile(const std::string &filePath) {
     for (const auto &node : this->allModules) {
       if (node->moduleName == module_name) {
         currentNode = node;
+        if (currentNode->container_filename.empty()) {
+          currentNode->container_filename = filePath;
+        }
         break;
       }
     }
     if (currentNode == nullptr) {
       currentNode = new ModuleTreeBuilder::moduleNode;
       currentNode->moduleName = module_name;
+      currentNode->container_filename = filePath;
       this->allModules.push_back(currentNode);
     }
 

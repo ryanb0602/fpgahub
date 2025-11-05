@@ -10,20 +10,27 @@ const transaction_handler = require("./transaction_handler.js");
 const transactionHandler = new transaction_handler(pool);
 
 router.use(
-  "/commit",
-  express.raw({ type: "application/octet-stream", limit: "10mb" }),
+	"/commit",
+	express.raw({ type: "application/octet-stream", limit: "10mb" }),
 );
 
 router.post("/commit", protectRoute, async (req, res) => {
-  try {
-    transactionHandler.createTransaction(req.body);
-    return res
-      .status(200)
-      .json({ message: "Transaction created successfully" });
-  } catch (error) {
-    console.error("Error creating transaction:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
+	try {
+		const trans_handle = transactionHandler.createTransaction(req.body);
+		return res
+			.status(200)
+			.json({ message: "Transaction created successfully", id: trans_handle });
+	} catch (error) {
+		console.error("Error creating transaction:", error);
+		return res.status(500).json({ error: "Internal Server Error" });
+	}
+});
+
+router.post("/commit/module-links/:id", protectRoute, async (req, res) => {
+	const id = req.params.id;
+	try {
+		console.log(req.body);
+	} catch (error) {}
 });
 
 module.exports = router;

@@ -172,13 +172,15 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
 
   std::string tracking = generate_tracking();
 
-  if (!init_commit_transaction(auth, tracking)) {
+  std::string trans_id = init_commit_transaction(auth, tracking);
+
+  if (trans_id.empty()) {
     std::cerr << "Failed to commit changes to remote server.\n";
     return false;
   }
 
   // module send
-  this->send_modules();
+  this->send_modules(auth, trans_id);
   // file send
   // save tracking this side
 
@@ -213,8 +215,8 @@ bool FileTracker::save_tracking() {
   return true;
 }
 
-bool FileTracker::init_commit_transaction(Authenticator &auth,
-                                          std::string &tracking) {
+std::string FileTracker::init_commit_transaction(Authenticator &auth,
+                                                 std::string &tracking) {
   httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
   // Custom headers
   httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
@@ -224,24 +226,29 @@ bool FileTracker::init_commit_transaction(Authenticator &auth,
 
   if (res) {
     // std::cout << "Status: " << res->status << "\n";
-    // std::cout << "Body: " << res->body << "\n";
+
+    std::string id =
+        res->body.substr(res->body.find("\"id\":\"") + 6)
+            .substr(
+                0,
+                res->body.substr(res->body.find("\"id\":\"") + 6).find("\""));
     if (res->status == 200) {
-      return true;
+      return id;
     } else {
-      return false;
+      return "";
     }
   } else {
     // std::cout << "Request failed: " << res.error() << "\n";
-    return false;
+    return "";
   }
 }
 
-bool FileTracker::send_modules() {
+bool FileTracker::send_modules(Authenticator &auth, std::string &commit_hash) {
   this->builder->buildTree();
   std::map<std::string, ModuleTreeBuilder::linkMapEntry> link_map =
       this->builder->getModuleLinks();
 
-  std::map<std::string, std::string> file_hash_to_module_name;
+  std::map<std::string, std::vector<std::string>> file_hash_to_module_name;
 
   std::string module_links = "";
 
@@ -252,7 +259,13 @@ bool FileTracker::send_modules() {
 
     for (const auto &file : this->tracked_files) {
       if (file.filename == module_filename) {
-        file_hash_to_module_name[file.hash] = module_name;
+        if (file_hash_to_module_name.find(file.hash) !=
+            file_hash_to_module_name.end()) {
+          file_hash_to_module_name[file.hash].push_back(module_name);
+        } else {
+          file_hash_to_module_name[file.hash] =
+              std::vector<std::string>{module_name};
+        }
         break;
       }
     }
@@ -262,7 +275,40 @@ bool FileTracker::send_modules() {
       module_links += dep + ":::";
     }
   }
-  std::cout << module_links << std::endl;
+
+  std::string file_links = "";
+
+  for (const auto &file : this->tracked_files) {
+    std::string hash = file.hash;
+    std::vector<std::string> module_names = file_hash_to_module_name[hash];
+    file_links += ":::" + hash + ":::";
+    for (const auto &mod_name : module_names) {
+      file_links += mod_name + ":::";
+    }
+  }
+
+  std::string body = file_links + "&&&" + module_links;
+
+  httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
+  // Custom headers
+  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
+
+  std::string route = "/ft/commit/module-links/" + commit_hash;
+
+  auto res = cli.Post(route, headers, body.data(), body.size(),
+                      "application/octet-stream");
+  if (res) {
+    std::cout << "Status: " << res->status << "\n";
+    std::cout << "Body: " << res->body << "\n";
+    if (res->status == 200) {
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    std::cout << "Request failed: " << res.error() << "\n";
+    return false;
+  }
 
   return true;
 }

@@ -41,8 +41,9 @@ private:
   bool save_tracking();
   std::string generate_tracking();
 
-  bool init_commit_transaction(Authenticator &auth, std::string &tracking);
-  bool send_modules();
+  std::string init_commit_transaction(Authenticator &auth,
+                                      std::string &tracking);
+  bool send_modules(Authenticator &auth, std::string &commit_hash);
 
   ModuleTreeBuilder *builder;
 };
