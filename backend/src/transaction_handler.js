@@ -17,6 +17,7 @@ class tracked_file {
 		this.stored_name = stored_name;
 		this.last_change = last_change;
 		this.hash = hash;
+		this.modules = [];
 	}
 }
 
@@ -26,6 +27,7 @@ class transaction {
 		this.status = "pending"; //pending, commit, modules, ok
 		this.last_time_update = Date.now();
 		this.files = [];
+		this.edges = [];
 	}
 }
 
@@ -63,9 +65,64 @@ class transaction_handler {
 			const tx = new transaction(hash);
 			tx.files = parseBlob(blob);
 			this.transactions.set(hash, tx);
+			tx.status = "commit";
 			return hash;
 		} catch (error) {
 			throw error;
+		}
+	}
+
+	moduleProcessing(txid, blob) {
+		const tx = this.transactions.get(txid);
+		if (!tx) {
+			throw new Error("Transaction not found");
+		}
+		if (tx.status !== "commit") {
+			throw new Error("Transaction not in commit state");
+		}
+
+		try {
+			const text = new TextDecoder().decode(blob);
+			console.log(text);
+			const temp_split = text.split("&&&");
+			const file_module_map = temp_split[0];
+			const module_links = temp_split[1];
+
+			// Process file_module_map
+			// Format :::filehash:::modulename:::modulename::::::filehash
+			// Split by ::::::
+			const fileModules = file_module_map.split("::::::");
+
+			fileModules[0] = fileModules[0].replace(":::", ""); // Remove leading :::
+			fileModules[fileModules.length - 1] = fileModules[
+				fileModules.length - 1
+			].slice(0, -3); // Remove trailing :::
+
+			for (const f_m of fileModules) {
+				const [filehash, ...modules] = f_m.split(":::");
+				const file = tx.files.find((f) => f.hash === filehash);
+				if (file) {
+					file.modules.push(...modules);
+				}
+			}
+
+			// Process module_links
+			// Format :::modulename:::link:::link::::::modulename:::link::::::modulename...
+			// Split by ::::::
+			const moduleLinks = module_links.split("::::::");
+			moduleLinks[0] = moduleLinks[0].replace(":::", ""); // Remove leading :::
+			moduleLinks[moduleLinks.length - 1] = moduleLinks[
+				moduleLinks.length - 1
+			].slice(0, -3);
+
+			for (const m_l of moduleLinks) {
+				const [modulename, ...links] = m_l.split(":::");
+				tx.edges.push([modulename, links]);
+			}
+
+			console.log(tx.edges);
+		} catch (error) {
+			throw new Error("Failed to process modules: " + error.message);
 		}
 	}
 }

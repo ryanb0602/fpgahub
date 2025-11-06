@@ -29,8 +29,10 @@ router.post("/commit", protectRoute, async (req, res) => {
 router.post("/commit/module-links/:id", protectRoute, async (req, res) => {
 	const id = req.params.id;
 	try {
-		console.log(req.body);
-	} catch (error) {}
+		transactionHandler.moduleProcessing(id, req.body);
+	} catch (error) {
+		console.log("Error processing module links:", error);
+	}
 });
 
 module.exports = router;
