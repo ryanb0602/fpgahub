@@ -98,3 +98,29 @@ std::string int_to_hex(int num) {
   ss << std::hex << std::setw(2) << std::setfill('0') << (num & 0xFF);
   return ss.str();
 }
+
+std::vector<std::string> parse_string_array(const std::string &input) {
+  std::vector<std::string> entries;
+
+  // Find the start and end of the array
+  size_t start = input.find('[');
+  size_t end = input.find(']');
+
+  if (start != std::string::npos && end != std::string::npos && end > start) {
+    std::string arrayContent = input.substr(start + 1, end - start - 1);
+    size_t pos = 0;
+    while (pos < arrayContent.size()) {
+      size_t quoteStart = arrayContent.find('"', pos);
+      if (quoteStart == std::string::npos)
+        break;
+      size_t quoteEnd = arrayContent.find('"', quoteStart + 1);
+      if (quoteEnd == std::string::npos)
+        break;
+      entries.push_back(
+          arrayContent.substr(quoteStart + 1, quoteEnd - quoteStart - 1));
+      pos = quoteEnd + 1;
+    }
+  }
+
+  return entries;
+}

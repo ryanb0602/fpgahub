@@ -180,8 +180,14 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
   }
 
   // module send
-  this->send_modules(auth, trans_id);
+  std::vector<std::string> needed_files = this->send_modules(auth, trans_id);
   // file send
+
+  if (needed_files.empty()) {
+    std::cout << "No diff or error during module send." << std::endl;
+  }
+
+  this->send_files(auth, trans_id, needed_files);
   // save tracking this side
 
   return true;
@@ -243,7 +249,8 @@ std::string FileTracker::init_commit_transaction(Authenticator &auth,
   }
 }
 
-bool FileTracker::send_modules(Authenticator &auth, std::string &commit_hash) {
+std::vector<std::string> FileTracker::send_modules(Authenticator &auth,
+                                                   std::string &commit_hash) {
   this->builder->buildTree();
   std::map<std::string, ModuleTreeBuilder::linkMapEntry> link_map =
       this->builder->getModuleLinks();
@@ -298,17 +305,50 @@ bool FileTracker::send_modules(Authenticator &auth, std::string &commit_hash) {
   auto res = cli.Post(route, headers, body.data(), body.size(),
                       "application/octet-stream");
   if (res) {
-    std::cout << "Status: " << res->status << "\n";
-    std::cout << "Body: " << res->body << "\n";
     if (res->status == 200) {
-      return true;
+      std::vector<std::string> needed_files = parse_string_array(res->body);
+      return needed_files;
     } else {
-      return false;
+      return {};
     }
   } else {
     std::cout << "Request failed: " << res.error() << "\n";
-    return false;
+    return {};
   }
+  return {};
+}
 
-  return true;
+bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
+                             const std::vector<std::string> &modified_files) {
+  int i = 1;
+  int total = modified_files.size();
+  for (const auto &filename : modified_files) {
+
+    httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
+    // Custom headers
+    httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()},
+                                {"X-Filename", filename}};
+
+    std::ifstream ifs(filename, std::ios::binary);
+    std::ostringstream ss;
+    ss << ifs.rdbuf();
+    std::string file_data = ss.str();
+
+    std::string route = "/ft/commit/file-transfer/" + commit_hash + "/" +
+                        std::to_string(i) + "/" + std::to_string(total);
+
+    auto res = cli.Post(route, headers, file_data.data(), file_data.size(),
+                        "application/octet-stream");
+    if (res) {
+      if (res->status == 200) {
+        std::cout << "Sent file " << i << " of " << total << ": " << filename
+                  << std::endl;
+      } else {
+        std::cerr << "Failed to send file: " << filename << std::endl;
+        return false;
+      }
+
+      i++;
+    }
+  }
 }

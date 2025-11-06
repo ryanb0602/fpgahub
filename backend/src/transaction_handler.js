@@ -1,3 +1,5 @@
+const pool = require("./db");
+
 function fnv1a64FromBytes(bytes) {
 	let h = BigInt("0xcbf29ce484222325"); // offset basis
 	const prime = BigInt("0x100000001b3");
@@ -18,6 +20,7 @@ class tracked_file {
 		this.last_change = last_change;
 		this.hash = hash;
 		this.modules = [];
+		this.recieved = false;
 	}
 }
 
@@ -83,7 +86,6 @@ class transaction_handler {
 
 		try {
 			const text = new TextDecoder().decode(blob);
-			console.log(text);
 			const temp_split = text.split("&&&");
 			const file_module_map = temp_split[0];
 			const module_links = temp_split[1];
@@ -119,11 +121,32 @@ class transaction_handler {
 				const [modulename, ...links] = m_l.split(":::");
 				tx.edges.push([modulename, links]);
 			}
-
-			console.log(tx.edges);
 		} catch (error) {
 			throw new Error("Failed to process modules: " + error.message);
 		}
+	}
+
+	async findNeededFiles(id) {
+		const tx = this.transactions.get(id);
+		if (!tx) {
+			throw new Error("Transaction not found");
+		}
+
+		let neededFiles = [];
+
+		for (const file of tx.files) {
+			const query = await pool.query(
+				"SELECT COUNT(*) AS count FROM files WHERE hash = $1",
+				[file.hash],
+			);
+			if (+query.rows[0].count === 0) {
+				neededFiles.push(file.filename);
+			}
+		}
+
+		tx.status = "modules";
+
+		return neededFiles;
 	}
 }
 

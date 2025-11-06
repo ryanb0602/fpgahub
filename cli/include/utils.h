@@ -20,5 +20,6 @@ bool delete_token(std::string &app_name);
 std::vector<std::string> list_files_recursive(const std::string &path);
 std::string hashFile(const std::string &file_path);
 std::string int_to_hex(int num);
+std::vector<std::string> parse_string_array(const std::string &input);
 
 #endif

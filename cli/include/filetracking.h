@@ -43,7 +43,10 @@ private:
 
   std::string init_commit_transaction(Authenticator &auth,
                                       std::string &tracking);
-  bool send_modules(Authenticator &auth, std::string &commit_hash);
+  std::vector<std::string> send_modules(Authenticator &auth,
+                                        std::string &commit_hash);
+  bool send_files(Authenticator &auth, std::string &commit_hash,
+                  const std::vector<std::string> &modified_files);
 
   ModuleTreeBuilder *builder;
 };

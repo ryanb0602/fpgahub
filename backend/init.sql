@@ -11,3 +11,25 @@ CREATE TABLE IF NOT EXISTS users (
     verified BOOLEAN DEFAULT FALSE,
     cli_token TEXT
 );
+
+CREATE TABLE IF NOT EXISTS files (
+    hash TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    modules TEXT[]
+);
+
+CREATE TABLE IF NOT EXISTS edges (
+    parent_module TEXT NOT NULL,
+    parent_module_file_hash TEXT NOT NULL,
+    child_module TEXT NOT NULL,
+    child_module_file_hash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS commits (
+    commit_hash TEXT PRIMARY KEY,
+    commit_by UUID REFERENCES users(uuid) ON DELETE SET NULL,
+    message TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    hashes TEXT[]
+);
