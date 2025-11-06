@@ -19,8 +19,19 @@ router.post(
 		//get header filename
 		const filename = req.headers["x-filename"];
 		try {
-			transactionHandler.fileTransfer(id, number, sum, filename, req);
-			return res.status(200).json({ message: "File received successfully" });
+			const ft_status = await transactionHandler.fileTransfer(
+				id,
+				number,
+				sum,
+				filename,
+				req,
+			);
+			console.log(ft_status);
+			if (ft_status === false) {
+				return res.status(202).json({ message: "File received successfully" });
+			}
+
+			return res.status(200).json({ message: "All files recieved" });
 		} catch (error) {
 			console.log("Error receiving file:", error);
 		}

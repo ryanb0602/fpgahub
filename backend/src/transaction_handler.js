@@ -32,7 +32,7 @@ class tracked_file {
 class transaction {
 	constructor(id) {
 		this.id = id;
-		this.status = "pending"; //pending, commit, modules, ok
+		this.status = "pending"; //pending, commit, modules, finishing, ok
 		this.last_time_update = Date.now();
 		this.files = [];
 		this.edges = [];
@@ -161,21 +161,36 @@ class transaction_handler {
 		}
 
 		const file_stored_name = uuidv4();
-
 		const save_path = path.join(STAGING_DIR, file_stored_name);
-		const stream = fs.createWriteStream(save_path);
-		req.pipe(stream);
 
-		stream.on("finish", async () => {
-			const file = tx.files.find((f) => f.filename === filename);
-			if (!file) {
-				throw new Error("File not found in transaction");
-			}
+		await new Promise((resolve, reject) => {
+			const stream = fs.createWriteStream(save_path);
+			req.pipe(stream);
 
-			file.recieved = true;
-
-			//check if number == sum, then check if all files recieved
+			stream.on("finish", resolve);
+			stream.on("error", reject);
 		});
+
+		// Now the file finished writing
+
+		const file = tx.files.find((f) => f.filename === filename);
+		if (!file) {
+			throw new Error("File not found in transaction");
+		}
+
+		file.recieved = true;
+		file.stored_name = file_stored_name;
+
+		// check if all files received
+		if (number == sum) {
+			const files = tx.files.filter((f) => !f.recieved);
+			if (files.length === 0) {
+				tx.status = "finishing";
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 

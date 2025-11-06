@@ -340,7 +340,8 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
     auto res = cli.Post(route, headers, file_data.data(), file_data.size(),
                         "application/octet-stream");
     if (res) {
-      if (res->status == 200) {
+      std::cout << "Status: " << res->status << "\n";
+      if (res->status == 200 || res->status == 202) {
         std::cout << "Sent file " << i << " of " << total << ": " << filename
                   << std::endl;
       } else {
@@ -348,8 +349,8 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
         std::cout << "Server response: " << res->body << std::endl;
         return false;
       }
-
       i++;
     }
   }
+  return true;
 }
