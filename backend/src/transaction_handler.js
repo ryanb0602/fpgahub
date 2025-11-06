@@ -1,4 +1,9 @@
 const pool = require("./db");
+const path = require("path");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+
+const STAGING_DIR = "/tmp";
 
 function fnv1a64FromBytes(bytes) {
 	let h = BigInt("0xcbf29ce484222325"); // offset basis
@@ -147,6 +152,30 @@ class transaction_handler {
 		tx.status = "modules";
 
 		return neededFiles;
+	}
+
+	async fileTransfer(id, number, sum, filename, req) {
+		const tx = this.transactions.get(id);
+		if (!tx) {
+			throw new Error("Transaction not found");
+		}
+
+		const file_stored_name = uuidv4();
+
+		const save_path = path.join(STAGING_DIR, file_stored_name);
+		const stream = fs.createWriteStream(save_path);
+		req.pipe(stream);
+
+		stream.on("finish", async () => {
+			const file = tx.files.find((f) => f.filename === filename);
+			if (!file) {
+				throw new Error("File not found in transaction");
+			}
+
+			file.recieved = true;
+
+			//check if number == sum, then check if all files recieved
+		});
 	}
 }
 

@@ -345,6 +345,7 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
                   << std::endl;
       } else {
         std::cerr << "Failed to send file: " << filename << std::endl;
+        std::cout << "Server response: " << res->body << std::endl;
         return false;
       }
 

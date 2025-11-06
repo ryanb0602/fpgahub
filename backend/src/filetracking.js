@@ -9,6 +9,24 @@ const transaction_handler = require("./transaction_handler.js");
 
 const transactionHandler = new transaction_handler(pool);
 
+router.post(
+	"/commit/file-transfer/:id/:number/:sum",
+	protectRoute,
+	async (req, res) => {
+		const id = req.params.id;
+		const number = req.params.number;
+		const sum = req.params.sum;
+		//get header filename
+		const filename = req.headers["x-filename"];
+		try {
+			transactionHandler.fileTransfer(id, number, sum, filename, req);
+			return res.status(200).json({ message: "File received successfully" });
+		} catch (error) {
+			console.log("Error receiving file:", error);
+		}
+	},
+);
+
 router.use(
 	"/commit",
 	express.raw({ type: "application/octet-stream", limit: "10mb" }),
