@@ -31,6 +31,7 @@ router.post(
 				return res.status(202).json({ message: "File received successfully" });
 			}
 
+			const final = await transactionHandler.finalizeTransaction(id);
 			return res.status(200).json({ message: "All files recieved" });
 		} catch (error) {
 			console.log("Error receiving file:", error);

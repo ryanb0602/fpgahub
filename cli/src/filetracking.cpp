@@ -72,13 +72,6 @@ bool FileTracker::load_tracking() {
     if (pos == std::string::npos) {
       throw std::runtime_error("Corrupted tracking data");
     }
-    std::string stored_name = data_in.substr(0, pos);
-    data_in.erase(0, pos + 3);
-
-    pos = data_in.find(":::");
-    if (pos == std::string::npos) {
-      throw std::runtime_error("Corrupted tracking data");
-    }
     std::string stored_time = data_in.substr(0, pos);
     data_in.erase(0, pos + 3);
 
@@ -89,7 +82,7 @@ bool FileTracker::load_tracking() {
     std::string hash = data_in.substr(0, pos);
     data_in.erase(0, pos + 3);
 
-    TrackedFile tf{filename, stored_name, stored_time, hash};
+    TrackedFile tf{filename, stored_time, hash};
     tracked_files.push_back(tf);
   }
 
@@ -162,8 +155,7 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
       }
     } else if (change.change_type == "new") {
       std::string new_hash = hashFile(change.filename);
-      TrackedFile new_tf{change.filename, change.filename, "placeholder_time",
-                         new_hash};
+      TrackedFile new_tf{change.filename, "placeholder_time", new_hash};
       this->tracked_files.push_back(new_tf);
     }
   }
@@ -196,8 +188,8 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
 std::string FileTracker::generate_tracking() {
   std::string tracking;
   for (const auto &file : this->tracked_files) {
-    tracking += file.filename + ":::" + file.stored_name +
-                ":::" + file.stored_time + ":::" + file.hash + ":::";
+    tracking +=
+        file.filename + ":::" + file.stored_time + ":::" + file.hash + ":::";
   }
   return tracking;
 }

@@ -2,6 +2,7 @@ const pool = require("./db");
 const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
+const minioClient = require("./minio");
 
 const STAGING_DIR = "/tmp";
 
@@ -19,9 +20,8 @@ function fnv1a64FromBytes(bytes) {
 }
 
 class tracked_file {
-	constructor(filename, stored_name, last_change, hash) {
+	constructor(filename, last_change, hash) {
 		this.filename = filename;
-		this.stored_name = stored_name;
 		this.last_change = last_change;
 		this.hash = hash;
 		this.modules = [];
@@ -47,12 +47,12 @@ function parseBlob(blob) {
 		// Split the text into parts
 		const parts = text.split(":::");
 
-		// Each file entry has 4 fields: filename, stored_name, last_change, hash
+		// Each file entry has 3 fields: filename, last_change, hash
 		const files = [];
-		for (let i = 0; i < parts.length - 1; i += 4) {
-			const [filename, stored_name, last_change, hash] = parts.slice(i, i + 4);
-			if (filename && stored_name && last_change && hash) {
-				files.push(new tracked_file(filename, stored_name, last_change, hash));
+		for (let i = 0; i < parts.length - 1; i += 3) {
+			const [filename, last_change, hash] = parts.slice(i, i + 3);
+			if (filename && last_change && hash) {
+				files.push(new tracked_file(filename, last_change, hash));
 			}
 		}
 
@@ -191,6 +191,32 @@ class transaction_handler {
 		}
 
 		return false;
+	}
+
+	async finalizeTransaction(id) {
+		const tx = this.transactions.get(id);
+
+		if (!tx) {
+			throw new Error("Transaction not found");
+		}
+
+		if (tx.status !== "finishing") {
+			throw new Error("Transaction not in finishing state");
+		}
+
+		await (async () => {
+			const bucket = "data";
+			const exists = await minioClient.bucketExists(bucket).catch(() => false);
+			if (!exists) await minioClient.makeBucket(bucket);
+		})();
+
+		for (const file of tx.files) {
+			await minioClient.fPutObject(
+				"data",
+				file.stored_name,
+				path.join(STAGING_DIR, file.stored_name),
+			);
+		}
 	}
 }
 

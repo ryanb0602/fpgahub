@@ -27,7 +27,6 @@ public:
 private:
   struct TrackedFile {
     std::string filename;
-    std::string stored_name;
     std::string stored_time;
     std::string hash;
   };
