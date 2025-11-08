@@ -2,6 +2,7 @@
 #include "../include/auth.h"
 #include "../include/utils.h"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -137,6 +138,11 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
 
   this->load_tracking();
 
+  const auto time = std::chrono::system_clock::now();
+  const auto unix_time =
+      std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch())
+          .count();
+
   for (const auto &change : changes) {
     if (change.change_type == "deleted") {
       this->tracked_files.erase(
@@ -149,13 +155,13 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
       for (auto &tf : this->tracked_files) {
         if (tf.filename == change.filename) {
           tf.hash = change.new_hash;
-          tf.stored_time = "placeholder_time";
+          tf.stored_time = std::to_string(unix_time);
           break;
         }
       }
     } else if (change.change_type == "new") {
       std::string new_hash = hashFile(change.filename);
-      TrackedFile new_tf{change.filename, "placeholder_time", new_hash};
+      TrackedFile new_tf{change.filename, std::to_string(unix_time), new_hash};
       this->tracked_files.push_back(new_tf);
     }
   }

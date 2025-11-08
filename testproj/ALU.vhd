@@ -3,6 +3,8 @@ use IEEE.std_logic_1164.all;
 use IEEE.STD_LOGIC_ARITH.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
+-- Comment to change hash
+
 entity top_entity is
     Port (
         -- Define top-level ports as needed, for example:

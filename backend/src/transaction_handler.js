@@ -193,7 +193,7 @@ class transaction_handler {
 		return false;
 	}
 
-	async finalizeTransaction(id) {
+	async finalizeTransaction(id, uuid) {
 		const tx = this.transactions.get(id);
 
 		if (!tx) {
@@ -216,7 +216,36 @@ class transaction_handler {
 				file.stored_name,
 				path.join(STAGING_DIR, file.stored_name),
 			);
+
+			await pool.query(
+				"INSERT INTO files (hash, filename, stored_name, last_change, modules) VALUES ($1, $2, $3, $4, $5)",
+				[
+					file.hash,
+					file.filename,
+					file.stored_name,
+					file.last_change,
+					file.modules,
+				],
+			);
 		}
+
+		for (const [parent, children] of tx.edges) {
+			for (const child of children) {
+				//this doesn't support the parent and child module hashes yet
+				//im not 100% sure how to manage that yet, can cause issues if a child is changed seperate from its parent, i dont know if i want to bind edge links to versions basically
+
+				await pool.query(
+					"INSERT INTO edges (parent_module, child_module) VALUES ($1, $2)",
+					[parent, child],
+				);
+			}
+		}
+
+		await pool.query(
+			"INSERT INTO commits (commit_hash, commit_by, message, hashes) VALUES ($1, $2, $3, $4)",
+			[tx.id, uuid, "placeholder", tx.files.map((f) => f.hash)],
+		);
+		tx.status = "ok";
 	}
 }
 

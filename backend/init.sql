@@ -16,14 +16,15 @@ CREATE TABLE IF NOT EXISTS files (
     hash TEXT PRIMARY KEY,
     filename TEXT NOT NULL,
     stored_name TEXT NOT NULL,
+    last_change BIGINT,
     modules TEXT[]
 );
 
 CREATE TABLE IF NOT EXISTS edges (
     parent_module TEXT NOT NULL,
-    parent_module_file_hash TEXT NOT NULL,
-    child_module TEXT NOT NULL,
-    child_module_file_hash TEXT NOT NULL
+    --parent_module_file_hash TEXT NOT NULL,
+    child_module TEXT NOT NULL
+    --child_module_file_hash TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS commits (
