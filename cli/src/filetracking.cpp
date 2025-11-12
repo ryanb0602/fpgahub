@@ -185,8 +185,10 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
     std::cout << "No diff or error during module send." << std::endl;
   }
 
-  this->send_files(auth, trans_id, needed_files);
-  // save tracking this side
+  if (this->send_files(auth, trans_id, needed_files)) {
+
+    this->save_tracking();
+  }
 
   return true;
 }
@@ -335,6 +337,9 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
     std::string route = "/ft/commit/file-transfer/" + commit_hash + "/" +
                         std::to_string(i) + "/" + std::to_string(total);
 
+    std::cout << "Sending file " << i << " of " << total << ": " << filename
+              << std::endl;
+
     auto res = cli.Post(route, headers, file_data.data(), file_data.size(),
                         "application/octet-stream");
     if (res) {
@@ -348,7 +353,11 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
         return false;
       }
       i++;
+
+      if (res->status == 200) {
+        return true;
+      }
     }
   }
-  return true;
+  return false;
 }

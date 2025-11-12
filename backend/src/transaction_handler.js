@@ -151,6 +151,8 @@ class transaction_handler {
 
 		tx.status = "modules";
 
+		tx.neededFiles = neededFiles;
+
 		return neededFiles;
 	}
 
@@ -183,7 +185,9 @@ class transaction_handler {
 
 		// check if all files received
 		if (number == sum) {
-			const files = tx.files.filter((f) => !f.recieved);
+			const files = tx.files.filter(
+				(f) => !f.recieved && tx.neededFiles.includes(f.filename),
+			);
 			if (files.length === 0) {
 				tx.status = "finishing";
 				return true;
