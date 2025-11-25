@@ -32,23 +32,24 @@ export const WebsiteNavigator = () => {
 				>
 					<Text size="5">Source</Text>
 				</a>
-				{location.pathname !== "/login" && (
-					<>
-						<Separator orientation="vertical" />
-						<a
-							href="/login"
-							style={{
-								textDecoration: "none",
-								color: "#ededed",
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-							}}
-						>
-							<PersonIcon width="17" height="17" />
-						</a>
-					</>
-				)}
+				{location.pathname !== "/login" &&
+					location.pathname !== "/register" && (
+						<>
+							<Separator orientation="vertical" />
+							<a
+								href="/login"
+								style={{
+									textDecoration: "none",
+									color: "#ededed",
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+								}}
+							>
+								<PersonIcon width="17" height="17" />
+							</a>
+						</>
+					)}
 			</Flex>
 		</Card>
 	);
