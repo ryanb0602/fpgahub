@@ -36,9 +36,27 @@ export const Dashboard = () => {
 					/>
 				</div>
 
-				<div style={colStyle}>Center</div>
+				<div style={colStyle}>
+					{" "}
+					<ModuleList
+						title="Your Modules"
+						modules={[
+							{ name: "test1", id: "test1", isFavorite: false, verified: true },
+							{ name: "test2", id: "test2", isFavorite: true, verified: false },
+						]}
+					/>
+				</div>
 
-				<div style={colStyle}>Right</div>
+				<div style={colStyle}>
+					{" "}
+					<ModuleList
+						title="Recent"
+						modules={[
+							{ name: "test1", id: "test1", isFavorite: false, verified: true },
+							{ name: "test2", id: "test2", isFavorite: true, verified: false },
+						]}
+					/>
+				</div>
 			</div>
 		</>
 	);

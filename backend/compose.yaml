@@ -14,7 +14,7 @@ services:
     environment:
       NODE_ENV: production
     ports:
-      - 3000:3000
+      - 5000:5000
   db:
     image: postgres:16
     container_name: postgres

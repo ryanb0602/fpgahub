@@ -144,4 +144,12 @@ router.post("/cli-token", async (req, res) => {
 	res.json({ message: "Issued token successfully", token: final_token });
 });
 
+router.get("/me", (req, res) => {
+	if (req.session.userId) {
+		return res.json({ loggedIn: true, userId: req.session.userId });
+	} else {
+		return res.json({ loggedIn: false });
+	}
+});
+
 module.exports = router;

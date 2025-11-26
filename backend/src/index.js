@@ -1,6 +1,8 @@
 const express = require("express");
 const app = express();
-const port = 3000;
+const port = 5000;
+
+const cors = require("cors");
 
 const session = require("express-session");
 const MemoryStore = require("memorystore")(session);
@@ -10,18 +12,25 @@ const protectRoute = require("./middleware.js");
 const fileTracking = require("./filetracking.js");
 
 app.use(
+	cors({
+		origin: "http://localhost:3000",
+		credentials: true,
+	}),
+);
+
+app.use(
 	session({
-		secret: "fake_key", // choose a strong random key in production
-		resave: true,
+		secret: "fake_key",
+		resave: false,
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			secure: false, // set to true if using HTTPS
-			sameSite: "lax", // or 'strict' for tighter security
-			maxAge: 1000 * 60 * 60 * 24, // 1 day
+			secure: false,
+			sameSite: "lax",
+			maxAge: 1000 * 60 * 60 * 24,
 		},
 		store: new MemoryStore({
-			checkPeriod: 1000 * 60 * 60, // prune expired entries every hour
+			checkPeriod: 1000 * 60 * 60,
 		}),
 	}),
 );

@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
+import ModulePage from "../pages/ModulePage";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 import PublicOnlyRoute from "../components/PublicOnlyRoute";
@@ -38,6 +39,32 @@ export default function AppRouter() {
 						<ProtectedRoute>
 							<Dashboard />
 						</ProtectedRoute>
+					}
+				/>
+
+				<Route
+					path="/module"
+					element={
+						<ProtectedRoute>
+							<ModulePage />
+						</ProtectedRoute>
+					}
+				/>
+
+				<Route
+					path="*"
+					element={
+						<div
+							style={{
+								width: "100%",
+								height: "90vh",
+								display: "flex",
+								justifyContent: "center",
+								alignItems: "center",
+							}}
+						>
+							<h1>404 - Not Found</h1>
+						</div>
 					}
 				/>
 			</Routes>

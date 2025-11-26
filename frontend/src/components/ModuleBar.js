@@ -21,7 +21,7 @@ export const ModuleBar = ({ module }) => {
 				padding: "0 1rem",
 				boxSizing: "border-box",
 			}}
-			onClick={() => navigate(`/modules/${module.id}`)}
+			onClick={() => navigate(`/module?id=${module.id}`)}
 			onMouseEnter={() => setHover(true)}
 			onMouseLeave={() => setHover(false)}
 		>
