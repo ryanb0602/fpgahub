@@ -10,6 +10,7 @@ const MemoryStore = require("memorystore")(session);
 const authRouter = require("./authroutes.js");
 const protectRoute = require("./middleware.js");
 const fileTracking = require("./filetracking.js");
+const frontendAPI = require("./frontend_services.js");
 
 app.use(
 	cors({
@@ -39,9 +40,7 @@ app.use("/auth", authRouter);
 
 app.use("/ft", fileTracking);
 
-app.get("/", protectRoute, (req, res) => {
-	res.send("Hello World!");
-});
+app.use("/api", protectRoute, frontendAPI);
 
 app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
