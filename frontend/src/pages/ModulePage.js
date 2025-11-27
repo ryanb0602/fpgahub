@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { ModuleTopBar } from "../components/ModuleTopBar";
+import { ModuleViewer } from "../components/ModuleViewer";
 
 export const ModulePage = () => {
 	const location = useLocation();
@@ -14,6 +15,16 @@ export const ModulePage = () => {
 	return (
 		<>
 			<ModuleTopBar name={moduleId} commit={commit} setCommit={setCommit} />
+			<div
+				style={{
+					width: "98%",
+					display: "flex",
+					justfifyContent: "center",
+					margin: "auto",
+				}}
+			>
+				<ModuleViewer />
+			</div>
 		</>
 	);
 };
