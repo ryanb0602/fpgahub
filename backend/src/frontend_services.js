@@ -4,6 +4,8 @@ const router = express.Router();
 const pool = require("./db");
 router.use(express.json());
 
+const minioClient = require("./minio");
+
 router.get("/commits", async (req, res) => {
 	const id = req.query.id;
 
@@ -39,6 +41,45 @@ router.get("/mymodules", async (req, res) => {
 		res.json(modules.rows.map((r) => r.module));
 	} catch (err) {
 		console.error(err);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+});
+
+router.get("/module", async (req, res) => {
+	const { name, commit } = req.query;
+	console.log(name, commit);
+
+	if (!name || !commit) {
+		return res.status(400).json({ error: "Missing name or commit parameters" });
+	}
+
+	try {
+		const file = await pool.query(
+			`SELECT f.stored_name
+                            FROM files f
+                            JOIN commits c ON f.hash = ANY(c.hashes)
+                            WHERE $1 = ANY(f.modules)
+                            AND c.commit_hash = $2`,
+			[name, commit],
+		);
+
+		if (file.rows.length === 0) {
+			return res.status(404).json({ error: "File not found in DB" });
+		}
+
+		const objectName = file.rows[0].stored_name;
+		const bucketName = "data";
+
+		minioClient.getObject(bucketName, objectName, (err, dataStream) => {
+			if (err) {
+				console.error("MinIO Error:", err);
+				return res.status(404).json({ error: "File not found in storage" });
+			}
+
+			dataStream.pipe(res);
+		});
+	} catch (err) {
+		console.error("Server Error:", err);
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 });
