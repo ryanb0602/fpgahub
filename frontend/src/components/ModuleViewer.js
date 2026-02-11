@@ -6,25 +6,8 @@ import { vhdl } from "@codemirror/legacy-modes/mode/vhdl";
 import { monokai } from "@uiw/codemirror-theme-monokai";
 import { PlayIcon } from "@radix-ui/react-icons";
 
-export const ModuleViewer = () => {
-  const [terminalVal, setTerminalVal] = useState("");
-
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function simulateOutput() {
-    setTerminalVal("");
-
-    await sleep(500);
-
-    setTerminalVal((prev) => prev + "Running...\n");
-    await sleep(1000);
-
-    setTerminalVal(
-      (prev) => prev + "testbench.vhd:48:5:@25ns:(assertion note): Test done.",
-    );
-  }
+export const ModuleViewer = ({ name }) => {
+  const [moduleTextVal, setModuleTextVal] = useState("");
 
   return (
     <>
@@ -52,7 +35,7 @@ export const ModuleViewer = () => {
               paddingBottom: "10px",
             }}
           >
-            <Button variant="primary" size="2" onClick={simulateOutput}>
+            <Button variant="primary" size="2" /*onClick={}*/>
               <PlayIcon />
             </Button>
           </div>
@@ -70,23 +53,7 @@ export const ModuleViewer = () => {
               extensions={[StreamLanguage.define(vhdl)]}
               editable={false}
               theme={monokai}
-              value={`library IEEE;
-use IEEE.std_logic_1164.all;
-
-entity full_adder is
-	port (
-    	A, B, Cin : in STD_LOGIC;
-        Sum, Cout : out STD_LOGIC);
-end full_adder;
-
-
-architecture Behavioral of full_adder is
-begin
-
-	Sum <= A xor B xor Cin;
-    Cout <= (A and B) or (A and Cin) or (B and Cin);
-
-end architecture Behavioral;`}
+              value={moduleTextVal}
             />
             <CodeMirror
               style={{ width: "50%" }}
@@ -94,59 +61,7 @@ end architecture Behavioral;`}
               extensions={[StreamLanguage.define(vhdl)]}
               editable={false}
               theme={monokai}
-              value={`library IEEE;
-use IEEE.std_logic_1164.all;
-
-entity testbench is
--- empty
-end testbench;
-
-architecture tb of testbench is
-
--- DUT component
-component full_adder is
-    port (
-        A, B, Cin : in  STD_LOGIC;
-        Sum, Cout : out STD_LOGIC
-    );
-end component;
-
--- Signals to connect to DUT
-signal A, B, Cin : STD_LOGIC := '0';
-signal Sum, Cout : STD_LOGIC;
-
-begin
-
-  -- Connect DUT
-  DUT: full_adder port map(A, B, Cin, Sum, Cout);
-
-  process
-  begin
-    -- Test 1: 0 + 0 + 0 = Sum:0, Cout:0
-    A <= '0'; B <= '0'; Cin <= '0';
-    wait for 1 ns;
-    assert (Sum = '0') report "Fail: 0+0+0 Sum incorrect" severity error;
-    assert (Cout = '0') report "Fail: 0+0+0 Cout incorrect" severity error;
-
-    -- Test 2: 0 + 0 + 1 = Sum:1, Cout:0
-    A <= '0'; B <= '0'; Cin <= '1';
-    wait for 1 ns;
-    assert (Sum = '1') report "Fail: 0+0+1 Sum incorrect" severity error;
-    assert (Cout = '0') report "Fail: 0+0+1 Cout incorrect" severity error;
-
-    -- Test 3: 0 + 1 + 0 = Sum:1, Cout:0
-    A <= '0'; B <= '1'; Cin <= '0';
-    wait for 1 ns;
-    assert (Sum = '1') report "Fail: 0+1+0 Sum incorrect" severity error;
-    assert (Cout = '0') report "Fail: 0+1+0 Cout incorrect" severity error;
-
-    -- Simulation complete
-    assert false report "Test done." severity note;
-    wait;
-  end process;
-
-end tb;
-`}
+              value={"placeholder"}
             />
           </div>
           <div style={{ height: "10px" }} />
@@ -160,7 +75,7 @@ end tb;
               lineNumbers: false,
               highlightActiveLine: false,
             }}
-            value={terminalVal}
+            value={"placeholder"}
           />
         </Card>
       </Section>

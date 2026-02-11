@@ -61,6 +61,10 @@ router.post("/commit/module-links/:id", protectRoute, async (req, res) => {
 	try {
 		transactionHandler.moduleProcessing(id, req.body);
 		const neededFiles = await transactionHandler.findNeededFiles(id);
+		if (neededFiles.length === 0) {
+			const final = await transactionHandler.finalizeTransaction(id, req.uuid);
+			return res.status(200).json({ neededFiles: neededFiles });
+		}
 		return res.status(200).json({ neededFiles: neededFiles });
 	} catch (error) {
 		console.log("Error processing module links:", error);

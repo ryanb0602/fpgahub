@@ -136,14 +136,17 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
     return true;
   }
 
-  this->load_tracking();
+  //this->load_tracking();
 
   const auto time = std::chrono::system_clock::now();
   const auto unix_time =
       std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch())
           .count();
 
+    bool only_deletions = true;
+
   for (const auto &change : changes) {
+        std::cout << change.filename << " - " << change.change_type;
     if (change.change_type == "deleted") {
       this->tracked_files.erase(
           std::remove_if(this->tracked_files.begin(), this->tracked_files.end(),
@@ -152,6 +155,7 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
                          }),
           this->tracked_files.end());
     } else if (change.change_type == "modified") {
+        only_deletions = false;
       for (auto &tf : this->tracked_files) {
         if (tf.filename == change.filename) {
           tf.hash = change.new_hash;
@@ -160,6 +164,7 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
         }
       }
     } else if (change.change_type == "new") {
+        only_deletions = false;
       std::string new_hash = hashFile(change.filename);
       TrackedFile new_tf{change.filename, std::to_string(unix_time), new_hash};
       this->tracked_files.push_back(new_tf);
@@ -181,7 +186,9 @@ bool FileTracker::commit(Authenticator &auth, ModuleTreeBuilder &treeBuilder) {
   std::vector<std::string> needed_files = this->send_modules(auth, trans_id);
   // file send
 
-  if (needed_files.empty()) {
+    std::cout << only_deletions << std::endl;
+
+  if (needed_files.empty() && !only_deletions) {
     std::cout << "No diff or error during module send." << std::endl;
   }
 
@@ -229,6 +236,8 @@ std::string FileTracker::init_commit_transaction(Authenticator &auth,
 
   auto res = cli.Post("/ft/commit", headers, tracking.data(), tracking.size(),
                       "application/octet-stream");
+
+    std::cout << tracking.data() << std::endl;
 
   if (res) {
     // std::cout << "Status: " << res->status << "\n";
@@ -296,6 +305,8 @@ std::vector<std::string> FileTracker::send_modules(Authenticator &auth,
 
   std::string body = file_links + "&&&" + module_links;
 
+    std::cout << body << std::endl;
+
   httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
   // Custom headers
   httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
@@ -322,6 +333,10 @@ bool FileTracker::send_files(Authenticator &auth, std::string &commit_hash,
                              const std::vector<std::string> &modified_files) {
   int i = 1;
   int total = modified_files.size();
+std::cout << total << " files to send." << std::endl;
+  if (total == 0) {
+    return true; // No files to send
+  }
   for (const auto &filename : modified_files) {
 
     httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP

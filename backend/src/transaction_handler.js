@@ -72,6 +72,7 @@ class transaction_handler {
 			const hash = fnv1a64FromBytes(blob);
 			const tx = new transaction(hash);
 			tx.files = parseBlob(blob);
+			console.log(tx.files);
 			this.transactions.set(hash, tx);
 			tx.status = "commit";
 			return hash;
@@ -153,6 +154,10 @@ class transaction_handler {
 
 		tx.neededFiles = neededFiles;
 
+		if (neededFiles.length === 0) {
+			tx.status = "finishing";
+		}
+
 		return neededFiles;
 	}
 
@@ -174,8 +179,10 @@ class transaction_handler {
 		});
 
 		// Now the file finished writing
+		console.log(tx.files);
 
 		const file = tx.files.find((f) => f.filename === filename);
+		console.log(`Received file: ${filename}, stored as: ${file_stored_name}`);
 		if (!file) {
 			throw new Error("File not found in transaction");
 		}
@@ -188,6 +195,7 @@ class transaction_handler {
 			const files = tx.files.filter(
 				(f) => !f.recieved && tx.neededFiles.includes(f.filename),
 			);
+			console.log(files);
 			if (files.length === 0) {
 				tx.status = "finishing";
 				return true;
@@ -213,24 +221,33 @@ class transaction_handler {
 			const exists = await minioClient.bucketExists(bucket).catch(() => false);
 			if (!exists) await minioClient.makeBucket(bucket);
 		})();
-
 		for (const file of tx.files) {
-			await minioClient.fPutObject(
-				"data",
-				file.stored_name,
-				path.join(STAGING_DIR, file.stored_name),
-			);
+			if (tx.neededFiles.includes(file.filename)) {
+				// Double check stored_name exists to be safe
+				if (!file.stored_name) {
+					console.error(
+						`Missing stored_name for needed file: ${file.filename}`,
+					);
+					continue;
+				}
 
-			await pool.query(
-				"INSERT INTO files (hash, filename, stored_name, last_change, modules) VALUES ($1, $2, $3, $4, $5)",
-				[
-					file.hash,
-					file.filename,
+				await minioClient.fPutObject(
+					"data",
 					file.stored_name,
-					file.last_change,
-					file.modules,
-				],
-			);
+					path.join(STAGING_DIR, file.stored_name),
+				);
+
+				await pool.query(
+					"INSERT INTO files (hash, filename, stored_name, last_change, modules) VALUES ($1, $2, $3, $4, $5)",
+					[
+						file.hash,
+						file.filename,
+						file.stored_name,
+						file.last_change,
+						file.modules,
+					],
+				);
+			}
 		}
 
 		for (const [parent, children] of tx.edges) {
