@@ -172,7 +172,7 @@ export const DashTopBar = () => {
 						gap: "1.5rem",
 					}}
 				>
-					<IconButton variant="ghost">
+					<IconButton variant="ghost" onClick={() => navigate("/network")}>
 						<Share1Icon height={25} width={25} />
 					</IconButton>
 					<IconButton variant="ghost">
