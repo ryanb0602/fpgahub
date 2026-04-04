@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
-export const DashTopBar = () => {
+export const DashTopBar = ({ onSelect } = {}) => {
 	const [search, setSearch] = useState("");
 	const [results, setResults] = useState([]);
 	const [loading, setLoading] = useState(false);
@@ -68,7 +68,11 @@ export const DashTopBar = () => {
 	const handleSelect = (moduleName) => {
 		setShowDropdown(false);
 		setSearch("");
-		navigate(`/module?id=${encodeURIComponent(moduleName)}`);
+		if (onSelect) {
+			onSelect(moduleName);
+		} else {
+			navigate(`/module?id=${encodeURIComponent(moduleName)}`);
+		}
 	};
 
 	return (
@@ -172,7 +176,7 @@ export const DashTopBar = () => {
 						gap: "1.5rem",
 					}}
 				>
-					<IconButton variant="ghost">
+					<IconButton variant="ghost" onClick={() => navigate("/network")}>
 						<Share1Icon height={25} width={25} />
 					</IconButton>
 					<IconButton variant="ghost">

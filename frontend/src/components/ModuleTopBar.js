@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Heading, Select } from "@radix-ui/themes";
+import { Heading, Select, IconButton } from "@radix-ui/themes";
+import { Share1Icon } from "@radix-ui/react-icons";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
 export const ModuleTopBar = ({ name, commit, setCommit }) => {
+	const navigate = useNavigate();
 	const [commits, setCommits] = useState([]);
 	const [loading, setLoading] = useState(true);
 
@@ -65,7 +68,14 @@ export const ModuleTopBar = ({ name, commit, setCommit }) => {
 				</div>
 
 				{/* RIGHT */}
-				<div style={{ display: "flex", justifyContent: "flex-end" }}>
+				<div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "1rem" }}>
+					<IconButton
+						variant="ghost"
+						onClick={() => navigate(`/network?highlight=${encodeURIComponent(name)}`)}
+						title="View in network"
+					>
+						<Share1Icon height={25} width={25} />
+					</IconButton>
 					<Select.Root
 						value={commit ? commit.commit_hash : ""}
 						onValueChange={(value) => {

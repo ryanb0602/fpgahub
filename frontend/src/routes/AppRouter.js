@@ -5,6 +5,7 @@ import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
 import ModulePage from "../pages/ModulePage";
+import NetworkGraph from "../pages/NetworkGraph";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 import PublicOnlyRoute from "../components/PublicOnlyRoute";
@@ -47,6 +48,15 @@ export default function AppRouter() {
 					element={
 						<ProtectedRoute>
 							<ModulePage />
+						</ProtectedRoute>
+					}
+				/>
+
+				<Route
+					path="/network"
+					element={
+						<ProtectedRoute>
+							<NetworkGraph />
 						</ProtectedRoute>
 					}
 				/>
