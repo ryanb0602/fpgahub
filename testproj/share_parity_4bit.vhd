@@ -8,6 +8,7 @@ entity share_parity is
         output : out STD_LOGIC);
 end share_parity;
 
+-- fake file changed
 
 architecture Behavioral of share_parity is
 
