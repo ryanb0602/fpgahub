@@ -264,8 +264,45 @@ class transaction_handler {
 
 		await pool.query(
 			"INSERT INTO commits (commit_hash, commit_by, message, hashes) VALUES ($1, $2, $3, $4)",
-			[tx.id, uuid, "placeholder", tx.files.map((f) => f.hash)],
+			[tx.id, uuid, "placeholder", tx.files.filter(f => tx.neededFiles.includes(f.filename)).map(f => f.hash)],
 		);
+
+		// Create empty testbench files for each unique module in the commit
+		// Only for files that actually changed (neededFiles)
+		const allModules = new Set();
+		for (const file of tx.files) {
+			if (tx.neededFiles.includes(file.filename) && file.modules && Array.isArray(file.modules)) {
+				for (const module of file.modules) {
+					allModules.add(module);
+				}
+			}
+		}
+
+		// For each module, create an empty yjs testbench file
+		for (const moduleName of allModules) {
+			const testbenchFileId = uuidv4();
+			const testbenchPath = path.join(STAGING_DIR, testbenchFileId);
+			
+			// Create an empty file for yjs (could be empty or initial yjs document structure)
+			fs.writeFileSync(testbenchPath, '');
+			
+			// Upload to minio
+			await minioClient.fPutObject(
+				"data",
+				testbenchFileId,
+				testbenchPath,
+			);
+			
+			// Insert into commit_testbenches table
+			await pool.query(
+				"INSERT INTO commit_testbenches (commit_id, module_name, testbench_file_id) VALUES ($1, $2, $3)",
+				[tx.id, moduleName, testbenchFileId],
+			);
+			
+			// Clean up staging file
+			fs.unlinkSync(testbenchPath);
+		}
+
 		tx.status = "ok";
 	}
 }

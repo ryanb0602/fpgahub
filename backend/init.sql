@@ -35,3 +35,10 @@ CREATE TABLE IF NOT EXISTS commits (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     hashes TEXT[]
 );
+
+CREATE TABLE IF NOT EXISTS commit_testbenches (
+    commit_id TEXT NOT NULL,
+    module_name TEXT NOT NULL,
+    testbench_file_id TEXT NOT NULL,
+    PRIMARY KEY (commit_id, module_name)
+);
