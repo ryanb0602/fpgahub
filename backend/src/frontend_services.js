@@ -95,14 +95,15 @@ router.get("/search", async (req, res) => {
 
 	try {
 		const result = await pool.query(
-			`SELECT DISTINCT module
-			 FROM (SELECT unnest(modules) AS module FROM files) t
-			 WHERE module ILIKE '%' || $1 || '%'
-			 ORDER BY
-			   CASE WHEN LOWER(module) = LOWER($1) THEN 3
-			        WHEN module ILIKE $1 || '%' THEN 2
-			        ELSE 1 END DESC,
-			   module ASC
+			`SELECT module FROM (
+			   SELECT DISTINCT module,
+			     CASE WHEN LOWER(module) = LOWER($1) THEN 3
+			          WHEN module ILIKE $1 || '%' THEN 2
+			          ELSE 1 END AS rank
+			   FROM (SELECT unnest(modules) AS module FROM files) t
+			   WHERE module ILIKE '%' || $1 || '%'
+			 ) ranked
+			 ORDER BY rank DESC, module ASC
 			 LIMIT 20`,
 			[query],
 		);
