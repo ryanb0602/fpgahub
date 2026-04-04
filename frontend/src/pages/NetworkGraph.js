@@ -5,6 +5,49 @@ import { DashTopBar } from "../components/DashTopBar";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
+// BFS from each node to count all unique reachable descendants (cycle-safe).
+function computeDescendantCounts(nodes, links) {
+	const children = {};
+	nodes.forEach((n) => {
+		children[n.id] = [];
+	});
+	links.forEach((l) => {
+		const src = typeof l.source === "object" ? l.source.id : l.source;
+		const tgt = typeof l.target === "object" ? l.target.id : l.target;
+		if (children[src]) children[src].push(tgt);
+	});
+
+	const counts = {};
+	nodes.forEach((n) => {
+		const visited = new Set([n.id]);
+		const queue = [n.id];
+		while (queue.length > 0) {
+			const curr = queue.shift();
+			for (const child of children[curr] || []) {
+				if (!visited.has(child)) {
+					visited.add(child);
+					queue.push(child);
+				}
+			}
+		}
+		counts[n.id] = visited.size - 1; // exclude the node itself
+	});
+	return counts;
+}
+
+// Fix the y-coordinate of each node so nodes with more descendants sit higher.
+// canvasHeight is the pixel height of the ForceGraph canvas.
+function assignHierarchicalY(nodes, counts, canvasHeight) {
+	const values = nodes.map((n) => counts[n.id] || 0);
+	const maxCount = Math.max(...values, 1);
+	const yRange = canvasHeight * 0.4; // use 80% of the canvas height
+	nodes.forEach((n) => {
+		const ratio = (counts[n.id] || 0) / maxCount;
+		// ratio=1 (most descendants) → top (-yRange); ratio=0 (leaf) → bottom (+yRange)
+		n.fy = yRange * (1 - 2 * ratio);
+	});
+}
+
 export const NetworkGraph = () => {
 	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
 	const [loading, setLoading] = useState(true);
@@ -12,6 +55,11 @@ export const NetworkGraph = () => {
 	const containerRef = useRef(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 	const navigate = useNavigate();
+
+	// Keep refs to the live node objects and their counts so we can re-apply fy
+	// when the canvas size changes without refetching.
+	const nodesRef = useRef([]);
+	const countsRef = useRef({});
 
 	useEffect(() => {
 		const fetchGraph = async () => {
@@ -21,6 +69,12 @@ export const NetworkGraph = () => {
 				});
 				if (!res.ok) throw new Error("Failed to fetch graph data");
 				const data = await res.json();
+
+				const counts = computeDescendantCounts(data.nodes, data.links);
+				assignHierarchicalY(data.nodes, counts, dimensions.height);
+
+				nodesRef.current = data.nodes;
+				countsRef.current = counts;
 				setGraphData(data);
 			} catch (err) {
 				console.error(err);
@@ -31,6 +85,7 @@ export const NetworkGraph = () => {
 		};
 
 		fetchGraph();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useEffect(() => {
@@ -47,6 +102,13 @@ export const NetworkGraph = () => {
 		window.addEventListener("resize", updateDimensions);
 		return () => window.removeEventListener("resize", updateDimensions);
 	}, [loading]);
+
+	// Re-apply fy whenever the canvas height changes so positions stay proportional.
+	useEffect(() => {
+		if (nodesRef.current.length === 0) return;
+		assignHierarchicalY(nodesRef.current, countsRef.current, dimensions.height);
+		setGraphData((prev) => ({ ...prev }));
+	}, [dimensions.height]);
 
 	const handleNodeClick = useCallback(
 		(node) => {
