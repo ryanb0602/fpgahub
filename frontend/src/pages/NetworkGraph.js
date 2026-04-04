@@ -69,7 +69,7 @@ export const NetworkGraph = () => {
 			setHighlightedNode(moduleName);
 			if (!fgRef.current) return;
 			const node = graphData.nodes.find((n) => n.id === moduleName);
-			if (!node || node.x == null || node.y == null) return;
+			if (!node || node.x === null || node.x === undefined || node.y === null || node.y === undefined) return;
 			fgRef.current.centerAt(node.x, node.y, 600);
 			fgRef.current.zoom(6, 600);
 		},
