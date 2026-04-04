@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { DashTopBar } from "../components/DashTopBar";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
@@ -11,8 +11,12 @@ export const NetworkGraph = () => {
 	const [error, setError] = useState(null);
 	const containerRef = useRef(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-	const [highlightedNode, setHighlightedNode] = useState(null);
 	const navigate = useNavigate();
+	const location = useLocation();
+
+	const initialHighlight = new URLSearchParams(location.search).get("highlight");
+	const [highlightedNode, setHighlightedNode] = useState(initialHighlight || null);
+	const pendingZoomRef = useRef(initialHighlight || null);
 	const fgRef = useRef();
 
 	useEffect(() => {
@@ -67,6 +71,7 @@ export const NetworkGraph = () => {
 	const handleSearchSelect = useCallback(
 		(moduleName) => {
 			setHighlightedNode(moduleName);
+			pendingZoomRef.current = moduleName;
 			if (!fgRef.current) return;
 			const node = graphData.nodes.find((n) => n.id === moduleName);
 			if (!node || node.x === null || node.x === undefined || node.y === null || node.y === undefined) return;
@@ -228,9 +233,18 @@ export const NetworkGraph = () => {
 						d3AlphaDecay={0.02}
 						d3VelocityDecay={0.3}
 						onEngineStop={() => {
-							if (fgRef.current) {
-								fgRef.current.zoomToFit(400, 40);
+							if (!fgRef.current) return;
+							if (pendingZoomRef.current) {
+								const targetId = pendingZoomRef.current;
+								pendingZoomRef.current = null;
+								const node = graphData.nodes.find((n) => n.id === targetId);
+								if (node && node.x !== null && node.x !== undefined && node.y !== null && node.y !== undefined) {
+									fgRef.current.centerAt(node.x, node.y, 600);
+									fgRef.current.zoom(6, 600);
+									return;
+								}
 							}
+							fgRef.current.zoomToFit(400, 40);
 						}}
 					/>
 				)}
