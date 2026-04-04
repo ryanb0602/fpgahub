@@ -11,6 +11,7 @@ export const NetworkGraph = () => {
 	const [error, setError] = useState(null);
 	const containerRef = useRef(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+	const [highlightedNode, setHighlightedNode] = useState(null);
 	const navigate = useNavigate();
 	const fgRef = useRef();
 
@@ -63,46 +64,80 @@ export const NetworkGraph = () => {
 		[navigate],
 	);
 
-	const nodeCanvasObject = useCallback((node, ctx, globalScale) => {
-		const BASE_FONT_SIZE = 10;
-		const MIN_FONT_SIZE = 3;
-		const PADDING_X_MULTIPLIER = 0.8;
-		const PADDING_Y_MULTIPLIER = 0.5;
+	const handleSearchSelect = useCallback(
+		(moduleName) => {
+			setHighlightedNode(moduleName);
+			if (!fgRef.current) return;
+			const node = graphData.nodes.find((n) => n.id === moduleName);
+			if (!node || node.x == null || node.y == null) return;
+			fgRef.current.centerAt(node.x, node.y, 600);
+			fgRef.current.zoom(6, 600);
+		},
+		[graphData.nodes],
+	);
 
-		const label = node.id;
-		const fontSize = Math.max(BASE_FONT_SIZE / globalScale, MIN_FONT_SIZE);
-		ctx.font = `${fontSize}px Sans-Serif`;
+	const nodeCanvasObject = useCallback(
+		(node, ctx, globalScale) => {
+			const BASE_FONT_SIZE = 10;
+			const MIN_FONT_SIZE = 3;
+			const PADDING_X_MULTIPLIER = 0.8;
+			const PADDING_Y_MULTIPLIER = 0.5;
 
-		const textWidth = ctx.measureText(label).width;
-		const paddingX = fontSize * PADDING_X_MULTIPLIER;
-		const paddingY = fontSize * PADDING_Y_MULTIPLIER;
-		const rectWidth = textWidth + paddingX * 2;
-		const rectHeight = fontSize + paddingY * 2;
+			const isHighlighted = node.id === highlightedNode;
+			const label = node.id;
+			const fontSize = Math.max(BASE_FONT_SIZE / globalScale, MIN_FONT_SIZE);
+			ctx.font = `${fontSize}px Sans-Serif`;
 
-		// Node background
-		ctx.fillStyle = "rgba(59, 18, 5, 0.9)";
-		ctx.strokeStyle = "rgba(255, 124, 57, 0.8)";
-		ctx.lineWidth = Math.max(1 / globalScale, 0.5);
-		ctx.beginPath();
-		ctx.roundRect(
-			node.x - rectWidth / 2,
-			node.y - rectHeight / 2,
-			rectWidth,
-			rectHeight,
-			fontSize * 0.4,
-		);
-		ctx.fill();
-		ctx.stroke();
+			const textWidth = ctx.measureText(label).width;
+			const paddingX = fontSize * PADDING_X_MULTIPLIER;
+			const paddingY = fontSize * PADDING_Y_MULTIPLIER;
+			const rectWidth = textWidth + paddingX * 2;
+			const rectHeight = fontSize + paddingY * 2;
 
-		// Node label
-		ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-		ctx.textAlign = "center";
-		ctx.textBaseline = "middle";
-		ctx.fillText(label, node.x, node.y);
+			// Glow for highlighted node
+			if (isHighlighted) {
+				ctx.shadowColor = "rgba(255, 180, 80, 0.9)";
+				ctx.shadowBlur = Math.max(12 / globalScale, 4);
+			}
 
-		node.__rectWidth = rectWidth;
-		node.__rectHeight = rectHeight;
-	}, []);
+			// Node background
+			ctx.fillStyle = isHighlighted
+				? "rgba(180, 70, 0, 0.95)"
+				: "rgba(59, 18, 5, 0.9)";
+			ctx.strokeStyle = isHighlighted
+				? "rgba(255, 200, 80, 1)"
+				: "rgba(255, 124, 57, 0.8)";
+			ctx.lineWidth = isHighlighted
+				? Math.max(2 / globalScale, 1)
+				: Math.max(1 / globalScale, 0.5);
+			ctx.beginPath();
+			ctx.roundRect(
+				node.x - rectWidth / 2,
+				node.y - rectHeight / 2,
+				rectWidth,
+				rectHeight,
+				fontSize * 0.4,
+			);
+			ctx.fill();
+			ctx.stroke();
+
+			// Reset shadow before drawing text
+			ctx.shadowColor = "transparent";
+			ctx.shadowBlur = 0;
+
+			// Node label
+			ctx.fillStyle = isHighlighted
+				? "rgba(255, 230, 150, 1)"
+				: "rgba(255, 255, 255, 0.9)";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText(label, node.x, node.y);
+
+			node.__rectWidth = rectWidth;
+			node.__rectHeight = rectHeight;
+		},
+		[highlightedNode],
+	);
 
 	const DEFAULT_NODE_WIDTH = 20;
 	const DEFAULT_NODE_HEIGHT = 10;
@@ -119,7 +154,7 @@ export const NetworkGraph = () => {
 
 	return (
 		<>
-			<DashTopBar />
+			<DashTopBar onSelect={handleSearchSelect} />
 			<div
 				ref={containerRef}
 				style={{
