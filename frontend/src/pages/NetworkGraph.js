@@ -5,49 +5,6 @@ import { DashTopBar } from "../components/DashTopBar";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
-// BFS from each node to count all unique reachable descendants (cycle-safe).
-function computeDescendantCounts(nodes, links) {
-	const children = {};
-	nodes.forEach((n) => {
-		children[n.id] = [];
-	});
-	links.forEach((l) => {
-		const src = typeof l.source === "object" ? l.source.id : l.source;
-		const tgt = typeof l.target === "object" ? l.target.id : l.target;
-		if (children[src]) children[src].push(tgt);
-	});
-
-	const counts = {};
-	nodes.forEach((n) => {
-		const visited = new Set([n.id]);
-		const queue = [n.id];
-		while (queue.length > 0) {
-			const curr = queue.shift();
-			for (const child of children[curr] || []) {
-				if (!visited.has(child)) {
-					visited.add(child);
-					queue.push(child);
-				}
-			}
-		}
-		counts[n.id] = visited.size - 1; // exclude the node itself
-	});
-	return counts;
-}
-
-// Fix the y-coordinate of each node so nodes with more descendants sit higher.
-// canvasHeight is the pixel height of the ForceGraph canvas.
-function assignHierarchicalY(nodes, counts, canvasHeight) {
-	const values = nodes.map((n) => counts[n.id] || 0);
-	const maxCount = Math.max(...values, 1);
-	const yRange = canvasHeight * 0.2; // nodes spread ±20% of canvas height
-	nodes.forEach((n) => {
-		const ratio = (counts[n.id] || 0) / maxCount;
-		// ratio=1 (most descendants) → top (-yRange); ratio=0 (leaf) → bottom (+yRange)
-		n.fy = yRange * (1 - 2 * ratio);
-	});
-}
-
 export const NetworkGraph = () => {
 	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
 	const [loading, setLoading] = useState(true);
@@ -55,13 +12,7 @@ export const NetworkGraph = () => {
 	const containerRef = useRef(null);
 	const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 	const navigate = useNavigate();
-
-	// Keep refs to the live node objects and their counts so we can re-apply fy
-	// when the canvas size changes without refetching.
-	const nodesRef = useRef([]);
-	const countsRef = useRef({});
 	const fgRef = useRef();
-	const chargeApplied = useRef(false);
 
 	useEffect(() => {
 		const fetchGraph = async () => {
@@ -71,13 +22,6 @@ export const NetworkGraph = () => {
 				});
 				if (!res.ok) throw new Error("Failed to fetch graph data");
 				const data = await res.json();
-
-				const counts = computeDescendantCounts(data.nodes, data.links);
-				assignHierarchicalY(data.nodes, counts, dimensions.height);
-
-				nodesRef.current = data.nodes;
-				countsRef.current = counts;
-				chargeApplied.current = false;
 				setGraphData(data);
 			} catch (err) {
 				console.error(err);
@@ -88,10 +32,6 @@ export const NetworkGraph = () => {
 		};
 
 		fetchGraph();
-		// dimensions.height is intentionally omitted: the resize effect (below)
-		// re-applies fy whenever height changes, so the initial fetch only needs
-		// the dimension snapshot at mount time.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useEffect(() => {
@@ -109,12 +49,12 @@ export const NetworkGraph = () => {
 		return () => window.removeEventListener("resize", updateDimensions);
 	}, [loading]);
 
-	// Re-apply fy whenever the canvas height changes so positions stay proportional.
+	// Configure charge strength for natural spreading once the graph is ready.
 	useEffect(() => {
-		if (nodesRef.current.length === 0) return;
-		assignHierarchicalY(nodesRef.current, countsRef.current, dimensions.height);
-		setGraphData((prev) => ({ ...prev }));
-	}, [dimensions.height]);
+		if (!fgRef.current || graphData.nodes.length === 0) return;
+		fgRef.current.d3Force("charge").strength(-120);
+		fgRef.current.d3ReheatSimulation();
+	}, [graphData]);
 
 	const handleNodeClick = useCallback(
 		(node) => {
@@ -250,11 +190,11 @@ export const NetworkGraph = () => {
 						linkDirectionalArrowRelPos={1}
 						backgroundColor="transparent"
 						nodeLabel=""
+						d3AlphaDecay={0.02}
+						d3VelocityDecay={0.3}
 						onEngineStop={() => {
-							if (!chargeApplied.current && fgRef.current) {
-								chargeApplied.current = true;
-								fgRef.current.d3Force("charge").strength(-200);
-								fgRef.current.d3ReheatSimulation();
+							if (fgRef.current) {
+								fgRef.current.zoomToFit(400, 40);
 							}
 						}}
 					/>
