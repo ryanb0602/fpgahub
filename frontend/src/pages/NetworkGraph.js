@@ -56,13 +56,18 @@ export const NetworkGraph = () => {
 	);
 
 	const nodeCanvasObject = useCallback((node, ctx, globalScale) => {
+		const BASE_FONT_SIZE = 10;
+		const MIN_FONT_SIZE = 3;
+		const PADDING_X_MULTIPLIER = 0.8;
+		const PADDING_Y_MULTIPLIER = 0.5;
+
 		const label = node.id;
-		const fontSize = Math.max(10 / globalScale, 3);
+		const fontSize = Math.max(BASE_FONT_SIZE / globalScale, MIN_FONT_SIZE);
 		ctx.font = `${fontSize}px Sans-Serif`;
 
 		const textWidth = ctx.measureText(label).width;
-		const paddingX = fontSize * 0.8;
-		const paddingY = fontSize * 0.5;
+		const paddingX = fontSize * PADDING_X_MULTIPLIER;
+		const paddingY = fontSize * PADDING_Y_MULTIPLIER;
 		const rectWidth = textWidth + paddingX * 2;
 		const rectHeight = fontSize + paddingY * 2;
 
@@ -91,13 +96,16 @@ export const NetworkGraph = () => {
 		node.__rectHeight = rectHeight;
 	}, []);
 
+	const DEFAULT_NODE_WIDTH = 20;
+	const DEFAULT_NODE_HEIGHT = 10;
+
 	const nodePointerAreaPaint = useCallback((node, color, ctx) => {
 		ctx.fillStyle = color;
 		ctx.fillRect(
-			node.x - (node.__rectWidth || 20) / 2,
-			node.y - (node.__rectHeight || 10) / 2,
-			node.__rectWidth || 20,
-			node.__rectHeight || 10,
+			node.x - (node.__rectWidth || DEFAULT_NODE_WIDTH) / 2,
+			node.y - (node.__rectHeight || DEFAULT_NODE_HEIGHT) / 2,
+			node.__rectWidth || DEFAULT_NODE_WIDTH,
+			node.__rectHeight || DEFAULT_NODE_HEIGHT,
 		);
 	}, []);
 
