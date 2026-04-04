@@ -88,6 +88,9 @@ export const NetworkGraph = () => {
 		};
 
 		fetchGraph();
+		// dimensions.height is intentionally omitted: the resize effect (below)
+		// re-applies fy whenever height changes, so the initial fetch only needs
+		// the dimension snapshot at mount time.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
