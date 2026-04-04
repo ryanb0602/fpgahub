@@ -1,4 +1,5 @@
 const express = require("express");
+const http = require("http");
 const app = express();
 const port = 5000;
 
@@ -11,6 +12,12 @@ const authRouter = require("./authroutes.js");
 const protectRoute = require("./middleware.js");
 const fileTracking = require("./filetracking.js");
 const frontendAPI = require("./frontend_services.js");
+const { setupYjsWebSocketServer } = require("./yjs-server.js");
+
+// Create shared session store
+const sessionStore = new MemoryStore({
+	checkPeriod: 1000 * 60 * 60,
+});
 
 app.use(
 	cors({
@@ -30,9 +37,7 @@ app.use(
 			sameSite: "lax",
 			maxAge: 1000 * 60 * 60 * 24,
 		},
-		store: new MemoryStore({
-			checkPeriod: 1000 * 60 * 60,
-		}),
+		store: sessionStore,
 	}),
 );
 
@@ -42,6 +47,10 @@ app.use("/ft", fileTracking);
 
 app.use("/api", protectRoute, frontendAPI);
 
-app.listen(port, () => {
-	console.log(`Example app listening on port ${port}`);
+// Create HTTP server and setup WebSocket for Yjs
+const server = http.createServer(app);
+setupYjsWebSocketServer(server, sessionStore);
+
+server.listen(port, () => {
+	console.log(`Server listening on port ${port} with WebSocket support`);
 });

@@ -1,13 +1,19 @@
 {
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie": "^1.1.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "lib0": "^0.2.98",
     "memorystore": "^1.6.7",
     "minio": "^8.0.6",
     "pg": "^8.16.3",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ws": "^8.20.0",
+    "y-protocols": "^1.0.7",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30"
   }
 }
