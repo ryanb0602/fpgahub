@@ -40,7 +40,7 @@ function computeDescendantCounts(nodes, links) {
 function assignHierarchicalY(nodes, counts, canvasHeight) {
 	const values = nodes.map((n) => counts[n.id] || 0);
 	const maxCount = Math.max(...values, 1);
-	const yRange = canvasHeight * 0.4; // half of the 80% span (nodes spread ±40% of height)
+	const yRange = canvasHeight * 0.2; // nodes spread ±20% of canvas height
 	nodes.forEach((n) => {
 		const ratio = (counts[n.id] || 0) / maxCount;
 		// ratio=1 (most descendants) → top (-yRange); ratio=0 (leaf) → bottom (+yRange)
@@ -60,6 +60,8 @@ export const NetworkGraph = () => {
 	// when the canvas size changes without refetching.
 	const nodesRef = useRef([]);
 	const countsRef = useRef({});
+	const fgRef = useRef();
+	const chargeApplied = useRef(false);
 
 	useEffect(() => {
 		const fetchGraph = async () => {
@@ -75,6 +77,7 @@ export const NetworkGraph = () => {
 
 				nodesRef.current = data.nodes;
 				countsRef.current = counts;
+				chargeApplied.current = false;
 				setGraphData(data);
 			} catch (err) {
 				console.error(err);
@@ -231,6 +234,7 @@ export const NetworkGraph = () => {
 
 				{!loading && !error && graphData.nodes.length > 0 && (
 					<ForceGraph2D
+						ref={fgRef}
 						width={dimensions.width}
 						height={dimensions.height}
 						graphData={graphData}
@@ -243,6 +247,13 @@ export const NetworkGraph = () => {
 						linkDirectionalArrowRelPos={1}
 						backgroundColor="transparent"
 						nodeLabel=""
+						onEngineStop={() => {
+							if (!chargeApplied.current && fgRef.current) {
+								chargeApplied.current = true;
+								fgRef.current.d3Force("charge").strength(-200);
+								fgRef.current.d3ReheatSimulation();
+							}
+						}}
 					/>
 				)}
 			</div>
