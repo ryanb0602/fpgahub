@@ -98,12 +98,11 @@ router.get("/search", async (req, res) => {
 			`SELECT DISTINCT module
 			 FROM (SELECT unnest(modules) AS module FROM files) t
 			 WHERE module ILIKE '%' || $1 || '%'
-			    OR similarity(module, $1) > 0.15
 			 ORDER BY
 			   CASE WHEN LOWER(module) = LOWER($1) THEN 3
 			        WHEN module ILIKE $1 || '%' THEN 2
 			        ELSE 1 END DESC,
-			   similarity(module, $1) DESC
+			   module ASC
 			 LIMIT 20`,
 			[query],
 		);
