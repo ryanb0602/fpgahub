@@ -5,8 +5,6 @@ import { ModuleList } from "../components/ModuleList";
 const API_BASE = process.env.REACT_APP_API_BASE;
 
 export const Dashboard = () => {
-  const [search, setSearch] = useState("");
-
   const [user_modules, setUserModules] = useState([]);
 
   const bodyStyle = {
@@ -49,7 +47,7 @@ export const Dashboard = () => {
 
   return (
     <>
-      <DashTopBar search={search} setSearch={setSearch} />
+      <DashTopBar />
       <div style={bodyStyle}>
         <div style={colStyle}>
           <ModuleList

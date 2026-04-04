@@ -84,4 +84,35 @@ router.get("/module", async (req, res) => {
 	}
 });
 
+router.get("/search", async (req, res) => {
+	const { q } = req.query;
+
+	if (!q || q.trim().length === 0) {
+		return res.json([]);
+	}
+
+	const query = q.trim();
+
+	try {
+		const result = await pool.query(
+			`SELECT DISTINCT module
+			 FROM (SELECT unnest(modules) AS module FROM files) t
+			 WHERE module ILIKE '%' || $1 || '%'
+			    OR similarity(module, $1) > 0.15
+			 ORDER BY
+			   CASE WHEN LOWER(module) = LOWER($1) THEN 3
+			        WHEN module ILIKE $1 || '%' THEN 2
+			        ELSE 1 END DESC,
+			   similarity(module, $1) DESC
+			 LIMIT 20`,
+			[query],
+		);
+
+		res.json(result.rows.map((r) => r.module));
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+});
+
 module.exports = router;
