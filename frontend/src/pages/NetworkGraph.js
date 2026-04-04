@@ -40,7 +40,7 @@ function computeDescendantCounts(nodes, links) {
 function assignHierarchicalY(nodes, counts, canvasHeight) {
 	const values = nodes.map((n) => counts[n.id] || 0);
 	const maxCount = Math.max(...values, 1);
-	const yRange = canvasHeight * 0.4; // use 80% of the canvas height
+	const yRange = canvasHeight * 0.4; // half of the 80% span (nodes spread ±40% of height)
 	nodes.forEach((n) => {
 		const ratio = (counts[n.id] || 0) / maxCount;
 		// ratio=1 (most descendants) → top (-yRange); ratio=0 (leaf) → bottom (+yRange)
