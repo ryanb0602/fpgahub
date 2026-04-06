@@ -11,7 +11,7 @@ use IEEE.numeric_std.ALL;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
-entity SPI is
+entity spi is
     Port (
         -- Global Signals
         clk : in  std_logic;    -- High-speed system clock (e.g. 50MHz/100MHz)
@@ -30,9 +30,9 @@ entity SPI is
         tx_data_i    : in  std_logic_vector(7 downto 0);
         tx_load_en : in std_logic
     );
-end SPI;
+end spi;
 
-architecture RTL of SPI is
+architecture RTL of spi is
 
     -- 1. Synchronization Shift Registers (3-stage for edge detection)
     signal sclk_sync : std_logic_vector(2 downto 0) := (others => '0');
@@ -135,3 +135,4 @@ begin
     end process;
 
 end RTL;
+-- test

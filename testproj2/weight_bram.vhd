@@ -2,6 +2,8 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+--fake change
+
 entity weight_bram is
     Generic (
         NUM_WEIGHTS : integer := 784 --default for hidden layer

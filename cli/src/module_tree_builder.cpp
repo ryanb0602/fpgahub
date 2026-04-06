@@ -121,8 +121,7 @@ ModuleTreeBuilder::extractDepends(const std::string &moduleText) {
   while (current_pos != std::string::npos) {
     current_pos = current_string.find("component ");
     if (current_pos != std::string::npos) {
-      size_t name_end = std::min(current_string.find(" ", current_pos + 10),
-                                 current_string.find("\n", current_pos + 10));
+      size_t name_end = current_string.find_first_of(" \n\r\t(", current_pos + 10);
       if (name_end != std::string::npos) {
         found_module = current_string.substr(current_pos + 10,
                                              name_end - (current_pos + 10));
@@ -130,12 +129,37 @@ ModuleTreeBuilder::extractDepends(const std::string &moduleText) {
         current_pos = name_end;
         current_string = current_string.substr(current_pos);
       } else {
+        found_module = current_string.substr(current_pos + 10);
+        if (!found_module.empty()) dependencies.push_back(found_module);
         break;
       }
     } else {
       break;
     }
   }
+
+  current_pos = 0;
+  current_string = moduleText;
+  while (current_pos != std::string::npos) {
+    current_pos = current_string.find("entity work.");
+    if (current_pos != std::string::npos) {
+      size_t name_end = current_string.find_first_of(" \n\r\t(", current_pos + 12);
+      if (name_end != std::string::npos) {
+        found_module = current_string.substr(current_pos + 12,
+                                             name_end - (current_pos + 12));
+        dependencies.push_back(found_module);
+        current_pos = name_end;
+        current_string = current_string.substr(current_pos);
+      } else {
+        found_module = current_string.substr(current_pos + 12);
+        if (!found_module.empty()) dependencies.push_back(found_module);
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
   return dependencies;
 }
 

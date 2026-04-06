@@ -305,8 +305,6 @@ std::vector<std::string> FileTracker::send_modules(Authenticator &auth,
 
   std::string body = file_links + "&&&" + module_links;
 
-    std::cout << body << std::endl;
-
   httplib::Client cli(API_BASE_URL, API_PORT); // server domain or IP
   // Custom headers
   httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};

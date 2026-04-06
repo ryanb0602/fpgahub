@@ -222,34 +222,39 @@ class transaction_handler {
 			if (!exists) await minioClient.makeBucket(bucket);
 		})();
 		for (const file of tx.files) {
-			if (tx.neededFiles.includes(file.filename)) {
-				// Double check stored_name exists to be safe
-				if (!file.stored_name) {
-					console.error(
-						`Missing stored_name for needed file: ${file.filename}`,
-					);
-					continue;
-				}
+		        if (tx.neededFiles.includes(file.filename)) {
+		                // Double check stored_name exists to be safe
+		                if (!file.stored_name) {
+		                        console.error(
+		                                `Missing stored_name for needed file: ${file.filename}`,
+		                        );
+		                        continue;
+		                }
 
-				await minioClient.fPutObject(
-					"data",
-					file.stored_name,
-					path.join(STAGING_DIR, file.stored_name),
-				);
+		                await minioClient.fPutObject(
+		                        "data",
+		                        file.stored_name,
+		                        path.join(STAGING_DIR, file.stored_name),
+		                );
 
-				await pool.query(
-					"INSERT INTO files (hash, filename, stored_name, last_change, modules) VALUES ($1, $2, $3, $4, $5)",
-					[
-						file.hash,
-						file.filename,
-						file.stored_name,
-						file.last_change,
-						file.modules,
-					],
-				);
-			}
+		                await pool.query(
+		                        "INSERT INTO files (hash, filename, stored_name, last_change, modules) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (hash) DO UPDATE SET modules = EXCLUDED.modules",
+		                        [
+		                                file.hash,
+		                                file.filename,
+		                                file.stored_name,
+		                                file.last_change,
+		                                file.modules,
+		                        ],
+		                );
+		        } else {
+		                // File already exists, but CLI might have extracted different modules. Update them.
+		                await pool.query(
+		                        "UPDATE files SET modules = $1 WHERE hash = $2",
+		                        [file.modules, file.hash]
+		                );
+		        }
 		}
-
 		for (const [parent, children] of tx.edges) {
 			for (const child of children) {
 				//this doesn't support the parent and child module hashes yet
