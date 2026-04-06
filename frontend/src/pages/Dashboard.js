@@ -22,6 +22,7 @@ export const Dashboard = () => {
     background: "rgba(0,0,0,0.2)",
     borderRadius: "12px",
     padding: "1.5rem",
+    overflowY: "auto",
   };
 
   const yourModules = async () => {
