@@ -18,6 +18,8 @@ const WS_BASE = process.env.REACT_APP_WS_BASE || "ws://localhost:5000";
 export const ModuleViewer = ({ name, commit }) => {
 	const [moduleTextVal, setModuleTextVal] = useState("");
 	const [connectionStatus, setConnectionStatus] = useState("disconnected");
+	const [simOutput, setSimOutput] = useState("");
+	const [currentRunId, setCurrentRunId] = useState(null);
 	const testbenchEditorRef = useRef(null);
 	const testbenchViewRef = useRef(null);
 	const yjsProviderRef = useRef(null);
@@ -119,6 +121,39 @@ export const ModuleViewer = ({ name, commit }) => {
 		};
 	}, [name, commit]);
 
+	const handleStartSim = async () => {
+		try {
+			setSimOutput('');
+			const durationEl = document.getElementById('sim-duration');
+			const unitEl = document.getElementById('sim-unit');
+			const duration = durationEl ? parseInt(durationEl.value) : 100;
+			const unit = unitEl ? unitEl.value : 'ns';
+
+			const body = { commit, module: name, duration, unit };
+			const r = await fetch(`${API_BASE}/api/simulate`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify(body),
+			});
+			if (!r.ok) throw new Error('Failed to start simulation');
+			const j = await r.json();
+			const runId = j.runId;
+			setCurrentRunId(runId);
+
+			const es = new EventSource(`${API_BASE}/api/run/${runId}/events`);
+			es.onmessage = (ev) => {
+				setSimOutput((s) => s + ev.data + "\n");
+			};
+			es.addEventListener('done', (ev) => {
+				es.close();
+			});
+		} catch (err) {
+			console.error('start sim error', err);
+			setSimOutput((s) => s + 'Error starting simulation: ' + err.message + "\n");
+		}
+	};
+
 	return (
 		<>
 			<Section
@@ -146,9 +181,26 @@ export const ModuleViewer = ({ name, commit }) => {
 							paddingBottom: "10px",
 						}}
 					>
-						<Button variant="primary" size="2" /*onClick={}*/>
-							<PlayIcon />
-						</Button>
+						<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+							<label style={{ fontSize: '14px' }}>Duration</label>
+							<input id="sim-duration" type="number" defaultValue={100} style={{ width: '90px' }} />
+							<select id="sim-unit" defaultValue={'ns'} style={{ padding: '4px' }}>
+								<option value="ns">ns</option>
+								<option value="us">us</option>
+								<option value="ms">ms</option>
+								<option value="s">s</option>
+							</select>
+							<Button variant="primary" size="2" onClick={() => handleStartSim()}>
+								<PlayIcon />
+							</Button>
+							<Button variant="ghost" size="2" onClick={() => {
+								if (currentRunId) {
+									window.open(`${API_BASE}/api/run/${currentRunId}/waveform`, '_blank');
+								}
+							}} disabled={!currentRunId}>
+								<Text>Waveform</Text>
+							</Button>
+						</div>
 						<Badge 
 							color={connectionStatus === "connected" ? "green" : connectionStatus === "connecting" ? "yellow" : "red"}
 							size="2"
@@ -199,7 +251,7 @@ export const ModuleViewer = ({ name, commit }) => {
 							lineNumbers: false,
 							highlightActiveLine: false,
 						}}
-						value={"placeholder"}
+						value={simOutput}
 					/>
 				</Card>
 			</Section>

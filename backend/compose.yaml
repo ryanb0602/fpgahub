@@ -15,6 +15,11 @@ services:
       NODE_ENV: production
     ports:
       - 5000:5000
+    # NOTE: the server will start containers in order to run simulations.
+    # We mount the docker socket so the server can run ephemeral simulator containers.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   db:
     image: postgres:16
     container_name: postgres
@@ -42,6 +47,13 @@ services:
       - "9001:9001" # Web console
     volumes:
       - minio_data:/data
+
+  simulator:
+    image: ghdl/ghdl:latest
+    container_name: simulator
+    command: tail -f /dev/null
+    restart: "no"
+    # no ports required; it's used as ephemeral container runner via docker run
 
 volumes:
   db_data:

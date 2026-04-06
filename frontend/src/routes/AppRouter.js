@@ -6,6 +6,7 @@ import Register from "../pages/Register";
 import Dashboard from "../pages/Dashboard";
 import ModulePage from "../pages/ModulePage";
 import NetworkGraph from "../pages/NetworkGraph";
+import WaveformViewer from "../pages/WaveformViewer";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 import PublicOnlyRoute from "../components/PublicOnlyRoute";

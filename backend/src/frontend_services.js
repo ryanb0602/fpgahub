@@ -6,6 +6,32 @@ router.use(express.json());
 
 const minioClient = require("./minio");
 
+const { createRun, attachSSE, getWaveformPath } = require('./sim_runner');
+
+router.post('/simulate', async (req, res) => {
+	try {
+		const { commit, module, duration, unit } = req.body;
+		if (!commit || !module || !duration || !unit) return res.status(400).json({ error: 'missing parameters' });
+		const runId = await createRun({ commit, module, duration: parseInt(duration), unit });
+		res.json({ runId });
+	} catch (err) {
+		console.error('Error starting simulation', err);
+		res.status(500).json({ error: 'Failed to start simulation', details: err.message });
+	}
+});
+
+router.get('/run/:runId/events', (req, res) => {
+	const runId = req.params.runId;
+	attachSSE(runId, res);
+});
+
+router.get('/run/:runId/waveform', (req, res) => {
+	const runId = req.params.runId;
+	const p = getWaveformPath(runId);
+	if (!p) return res.status(404).json({ error: 'waveform not found' });
+	res.sendFile(p);
+});
+
 router.get("/commits", async (req, res) => {
 	const id = req.query.id;
 
