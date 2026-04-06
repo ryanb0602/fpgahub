@@ -235,7 +235,7 @@ export const NetworkGraph = () => {
             linkColor={() => "rgba(255, 124, 57, 0.4)"}
             linkWidth={1.5}
             linkDirectionalArrowLength={4}
-            linkDirectionalArrowRelPos={1}
+            linkDirectionalArrowRelPos={0.5}
             backgroundColor="transparent"
             d3AlphaDecay={0.02}
             onEngineStop={() => {
