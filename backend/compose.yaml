@@ -15,6 +15,9 @@ services:
       NODE_ENV: production
     ports:
       - 5000:5000
+    # Run as root so the server process can access the mounted Docker socket.
+    # This is required for the server to create/attach simulator containers via the Docker API.
+    user: root
     # NOTE: the server will start containers in order to run simulations.
     # We mount the docker socket so the server can run ephemeral simulator containers.
     volumes:
@@ -49,11 +52,13 @@ services:
       - minio_data:/data
 
   simulator:
-    image: ghdl/ghdl:latest
+    build:
+      context: ./simulator
+    image: fpga_simulator:latest
     container_name: simulator
     command: tail -f /dev/null
     restart: "no"
-    # no ports required; it's used as ephemeral container runner via docker run
+    # no ports required; it's used as an ephemeral image for running simulations via the server
 
 volumes:
   db_data:

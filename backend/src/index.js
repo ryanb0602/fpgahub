@@ -12,6 +12,7 @@ const authRouter = require("./authroutes.js");
 const protectRoute = require("./middleware.js");
 const fileTracking = require("./filetracking.js");
 const frontendAPI = require("./frontend_services.js");
+const runRoutes = require("./run_routes.js");
 const { setupYjsWebSocketServer } = require("./yjs-server.js");
 
 // Create shared session store
@@ -44,6 +45,9 @@ app.use(
 app.use("/auth", authRouter);
 
 app.use("/ft", fileTracking);
+
+// Public run endpoints (SSE and waveform) - no auth so EventSource works cross-origin
+app.use("/run", runRoutes);
 
 app.use("/api", protectRoute, frontendAPI);
 

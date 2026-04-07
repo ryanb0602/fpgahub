@@ -141,12 +141,25 @@ export const ModuleViewer = ({ name, commit }) => {
 			const runId = j.runId;
 			setCurrentRunId(runId);
 
-			const es = new EventSource(`${API_BASE}/api/run/${runId}/events`);
+			// Use public run endpoint (no auth required for SSE). EventSource cannot set custom headers.
+			const base = API_BASE.replace(/\/$/, '')
+			const es = new EventSource(`${base}/run/${runId}/events`);
 			es.onmessage = (ev) => {
 				setSimOutput((s) => s + ev.data + "\n");
 			};
 			es.addEventListener('done', (ev) => {
 				es.close();
+				try {
+					const payload = JSON.parse(ev.data);
+					if (payload && payload.waveform_b64) {
+						const key = `waveform_b64_${runId}`;
+						sessionStorage.setItem(key, payload.waveform_b64);
+						setCurrentRunId(runId);
+						setSimOutput((s) => s + `Waveform received for run ${runId}\n`);
+					}
+				} catch (e) {
+					console.warn('Failed to parse done payload', e);
+				}
 			});
 		} catch (err) {
 			console.error('start sim error', err);

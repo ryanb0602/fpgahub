@@ -190,6 +190,22 @@ export default function WaveformViewer({ location }) {
 
   useEffect(() => {
     if (!runId) return setError('Missing runId');
+    // First, check if the backend embedded the waveform in sessionStorage via SSE
+    try {
+      const key = `waveform_b64_${runId}`;
+      const b64 = sessionStorage.getItem(key);
+      if (b64) {
+        const txt = atob(b64);
+        setVcdText(txt);
+        const p = parseVCD(txt);
+        setParsed(p);
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to read embedded waveform from sessionStorage', e);
+    }
+
+    // Fallback: fetch from API
     fetch(`${process.env.REACT_APP_API_BASE}/api/run/${runId}/waveform`, { credentials: 'include' })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Server responded ${r.status}`);

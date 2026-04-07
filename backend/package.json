@@ -8,6 +8,8 @@
     "express-session": "^1.18.2",
     "form-data": "^4.0.0",
     "node-fetch": "^3.3.2",
+    "dockerode": "^3.3.0",
+    "tar-stream": "^2.2.0",
     "lib0": "^0.2.98",
     "memorystore": "^1.6.7",
     "minio": "^8.0.6",

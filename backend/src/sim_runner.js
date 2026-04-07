@@ -1,12 +1,16 @@
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 const pool = require('./db');
 const minioClient = require('./minio');
+const Docker = require('dockerode');
+const { PassThrough } = require('stream');
+const tarStream = require('tar-stream');
+
+const docker = new Docker({ socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' });
 
 const RUNS_DIR = process.env.SIM_RUNS_DIR || '/tmp/fpgahub_runs';
-const SIM_IMAGE = process.env.SIM_IMAGE || 'ghdl/ghdl:latest';
+const SIM_IMAGE = process.env.SIM_IMAGE || 'fpga_simulator:latest';
 const MAX_RUN_TIME_MS = parseInt(process.env.SIM_MAX_RUNTIME_MS || '300000'); // 5 minutes default
 
 if (!fs.existsSync(RUNS_DIR)) {
@@ -84,44 +88,171 @@ function parseEntityNameFromVHDL(content) {
 	return null;
 }
 
-function startDockerSimulation(runId, workDir, topEntity, stopTimeStr, onStdoutLine, onExit) {
-	// Build the command to run inside the container
-	// We will run a bash -c "ghdl -a *.vhd tb.vhd && ghdl -e <entity> && ghdl -r <entity> --vcd=waveform.vcd --stop-time=<stopTime>"
-	const innerCmd = `ghdl -a *.vhd tb.vhd && ghdl -e ${topEntity} && ghdl -r ${topEntity} --vcd=waveform.vcd --stop-time=${stopTimeStr}`;
+async function runContainerCommand(runId, runDir, innerCmd, onStdoutLine, onExit, durationMs) {
+	// Read resource limits from environment (basic sane defaults)
+	const memMb = parseInt(process.env.SIM_MEMORY_MB || '512', 10); // MB
+	const cpus = parseFloat(process.env.SIM_CPUS || '0.5'); // CPU cores
+	const memoryBytes = Math.max(32, memMb) * 1024 * 1024;
+	const nanoCpus = Math.max(0.01, cpus) * 1e9; // dockerode expects NanoCPUs
 
-	const dockerArgs = [
-		'run', '--rm',
-		'-v', `${workDir}:/work:ro`, // mount read-only to be safe
-		'-w', '/work',
-		SIM_IMAGE,
-		'bash', '-lc', innerCmd
-	];
+	const hostConfig = {
+		Memory: memoryBytes,
+		NanoCpus: Math.floor(nanoCpus),
+		PidsLimit: parseInt(process.env.SIM_PIDS_LIMIT || '128', 10),
+	};
 
-	console.log('Starting docker with args', dockerArgs.join(' '));
-	const proc = spawn('docker', dockerArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+	// Create a short-lived container that sleeps; we'll upload files then exec the command
+	const container = await docker.createContainer({
+		Image: SIM_IMAGE,
+		Cmd: ['bash', '-lc', 'tail -f /dev/null'],
+		HostConfig: hostConfig,
+		WorkingDir: '/work',
+		Tty: false,
+	});
 
-	let stdoutBuf = '';
-	proc.stdout.on('data', (chunk) => {
-		const s = chunk.toString('utf-8');
-		stdoutBuf += s;
-		// emit lines
-		s.split(/\r?\n/).forEach(line => {
-			if (line.length > 0) onStdoutLine(line);
+	// Start the container
+	await container.start();
+
+	// Upload runDir contents into the container
+	try {
+		// ensure /work exists inside container
+		const mkdirExec = await container.exec({ Cmd: ['bash', '-lc', 'mkdir -p /work && chmod 755 /work'], AttachStdout: true, AttachStderr: true });
+		await new Promise((resolve, reject) => {
+			mkdirExec.start((err, stream) => {
+				if (err) return reject(err);
+				container.modem.demuxStream(stream, process.stdout, process.stderr);
+				mkdirExec.inspect((err2, data) => {
+					if (err2) return reject(err2);
+					if (typeof data.ExitCode === 'number' && data.ExitCode !== 0) return reject(new Error('mkdir exec failed: ' + data.ExitCode));
+					resolve();
+				});
+			});
+		});
+
+		const { spawn } = require('child_process');
+		const tarPath = path.join('/tmp', `run-${runId}.tar`);
+		// create tar file
+		await new Promise((resolve, reject) => {
+			const tarCreate = spawn('tar', ['-C', runDir, '-cf', tarPath, '.']);
+			tarCreate.on('error', reject);
+			tarCreate.on('close', (code) => {
+				if (code !== 0) return reject(new Error('tar create failed with ' + code));
+				resolve();
+			});
+		});
+
+		// stream tar into container
+		await new Promise((resolve, reject) => {
+			const rs = fs.createReadStream(tarPath);
+			container.putArchive(rs, { path: '/work' }, (err) => {
+				if (err) return reject(err);
+				resolve();
+			});
+			rs.on('error', reject);
+			rs.on('close', () => {
+				try { fs.unlinkSync(tarPath); } catch (e) {}
+			});
+		});
+
+		onStdoutLine('Uploaded run directory into container');
+	} catch (e) {
+		onStdoutLine('[ERR] Failed to upload run directory into container: ' + String(e));
+		// proceed anyway
+	}
+
+	// Create an exec to run the ghdl process
+	const execObj = await container.exec({
+		Cmd: ['bash', '-lc', innerCmd],
+		AttachStdout: true,
+		AttachStderr: true,
+	});
+
+	const execStream = await new Promise((resolve, reject) => {
+		execObj.start((err, stream) => {
+			if (err) return reject(err);
+			resolve(stream);
 		});
 	});
-	proc.stderr.on('data', (chunk) => {
+
+	// Demux and forward exec output
+	const out = new PassThrough();
+	const err = new PassThrough();
+	container.modem.demuxStream(execStream, out, err);
+
+	out.on('data', (chunk) => {
 		const s = chunk.toString('utf-8');
-		stdoutBuf += s;
-		s.split(/\r?\n/).forEach(line => {
-			if (line.length > 0) onStdoutLine('[ERR] ' + line);
+		s.split(/\r?\n/).forEach(line => { if (line.length>0) onStdoutLine(line); });
+	});
+	err.on('data', (chunk) => {
+		const s = chunk.toString('utf-8');
+		s.split(/\r?\n/).forEach(line => { if (line.length>0) onStdoutLine('[ERR] ' + line); });
+	});
+
+	// Poll for exec completion
+	const inspectExec = async () => {
+		return new Promise((resolve, reject) => {
+			execObj.inspect((err, data) => {
+				if (err) return reject(err);
+				resolve(data);
+			});
 		});
-	});
+	};
 
-	proc.on('close', (code, signal) => {
-		onExit(code, signal);
-	});
+	const start = Date.now();
+	let done = false;
+	while (!done) {
+		const info = await inspectExec();
+		if (typeof info.ExitCode === 'number') {
+			done = true;
+			// Try to copy waveform.vcd out of the container into runDir before exiting
+			try {
+				const archiveStream = await new Promise((resolve, reject) => {
+					container.getArchive({ path: '/work/waveform.vcd' }, (err, stream) => {
+						if (err) return reject(err);
+						resolve(stream);
+					});
+				});
 
-	return proc;
+				await new Promise((resolve, reject) => {
+					const extract = tarStream.extract();
+					extract.on('entry', (header, stream, next) => {
+						const outfile = path.join(runDir, path.basename(header.name));
+						const ws = fs.createWriteStream(outfile);
+						stream.pipe(ws);
+						stream.on('end', next);
+						stream.on('error', next);
+					});
+					extract.on('finish', resolve);
+					extract.on('error', reject);
+					archiveStream.pipe(extract);
+				});
+
+				// ensure file exists
+				const wf = path.join(runDir, 'waveform.vcd');
+				if (fs.existsSync(wf)) {
+					onStdoutLine('Extracted waveform.vcd to host run dir');
+				} else {
+					onStdoutLine('[ERR] waveform.vcd not found after extraction');
+				}
+			} catch (e) {
+				onStdoutLine('[ERR] Failed to extract waveform from container: ' + String(e));
+			}
+
+			// forward exit
+			onExit(info.ExitCode, null);
+			break;
+		}
+		if (Date.now() - start > durationMs + 10000) {
+			try { await execObj.kill(); } catch (e) {}
+			onExit(null, 'killed');
+			break;
+		}
+		await new Promise((r) => setTimeout(r, 200));
+	}
+
+	try { container.remove({ force: true }); } catch (e) {}
+
+	return container;
 }
 
 async function createRun({ commit, module, duration, unit }) {
@@ -178,82 +309,80 @@ async function createRun({ commit, module, duration, unit }) {
 		// Build stop time string
 		const stopTimeStr = `${duration}${unit}`;
 
-		// Start docker run
+		// Start container run
 		const onStdoutLine = (line) => {
 			run.stdoutLines.push(line);
-			// notify clients
 			for (const res of run.clients) {
-				try {
-					res.write(`data: ${line.replace(/\\n/g, '\\n')}\n\n`);
-				} catch (e) {
-					// ignore
-				}
+				try { res.write(`data: ${line.replace(/\n/g, '\\n')}\n\n`); } catch (e) {}
 			}
 		};
 
 		const onExit = (code, signal) => {
 			run.finished = true;
 			run.exitCode = code;
-			// waveform path expected
 			const waveform = path.join(runDir, 'waveform.vcd');
-			if (fs.existsSync(waveform)) {
-				run.waveformPath = waveform;
-			}
-			// notify clients
+			if (fs.existsSync(waveform)) run.waveformPath = waveform;
 			for (const res of run.clients) {
-				try {
-					res.write(`event: done\ndata: ${JSON.stringify({code, signal})}\n\n`);
-					res.end();
-				} catch (e) {}
+			try {
+				const payload = { code, signal };
+				const wfPath = path.join(run.runDir, 'waveform.vcd');
+				if (fs.existsSync(wfPath)) {
+					// include a base64 payload of the VCD so the frontend can receive it immediately
+					try {
+						const buf = fs.readFileSync(wfPath);
+						payload.waveform_b64 = buf.toString('base64');
+						payload.waveformName = 'waveform.vcd';
+					} catch (e) {
+						console.error('Failed to read waveform for embedding:', e);
+					}
+				}
+				res.write(`event: done\ndata: ${JSON.stringify(payload)}\n\n`);
+				res.end();
+			} catch (e) {}
 			}
-			// schedule cleanup in 10 minutes
 			setTimeout(() => {
 				runs.delete(runId);
 				try { fs.rmSync(runDir, { recursive: true, force: true }); } catch (e) {}
 			}, 10 * 60 * 1000);
 		};
 
-		// For safety mount read-only — we already wrote files into runDir; ghdl will try to write waveform.vcd which will fail if mount is read-only.
-		// So we need to mount read-write. We'll mount as read-write but isolate to this directory.
-		// Adjust startDockerSimulation to mount rw
 
-		// Replace startDockerSimulation to mount read-write
-		const innerCmd = `ghdl -a *.vhd tb.vhd && ghdl -e ${topEntity} && ghdl -r ${topEntity} --vcd=waveform.vcd --stop-time=${stopTimeStr}`;
-		const dockerArgs = [
-			'run', '--rm',
-			'-v', `${runDir}:/work`,
-			'-w', '/work',
-			SIM_IMAGE,
-			'bash', '-lc', innerCmd
-		];
+		// Debug: list runDir contents on the host side before starting container
+		try {
+			const hostFiles = fs.readdirSync(runDir);
+			console.log(`Run directory ${runDir} contains:`, hostFiles);
+		} catch (e) {
+			console.warn('Could not read runDir contents:', e);
+		}
 
-		const proc = spawn('docker', dockerArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+		// Build a robust inner command that lists files and runs ghdl with explicit filenames
+		let vhdFilesList = [];
+		try {
+			vhdFilesList = fs.readdirSync(runDir).filter((f) => f.toLowerCase().endsWith('.vhd'));
+			console.log('Host-detected VHD files for run:', vhdFilesList);
+		} catch (e) {
+			console.warn('Could not read runDir for vhd list:', e);
+		}
 
-		let stdoutBuf = '';
-		proc.stdout.on('data', (chunk) => {
-			const s = chunk.toString('utf-8');
-			stdoutBuf += s;
-			s.split(/\r?\n/).forEach(line => { if (line.length>0) onStdoutLine(line); });
-		});
-		proc.stderr.on('data', (chunk) => {
-			const s = chunk.toString('utf-8');
-			stdoutBuf += s;
-			s.split(/\r?\n/).forEach(line => { if (line.length>0) onStdoutLine('[ERR] ' + line); });
-		});
+		if (vhdFilesList.length === 0) {
+			throw new Error('No VHD files available in run directory');
+		}
 
-		// enforce a wallclock timeout for safety
-		const runtimeLimit = Math.min(MAX_RUN_TIME_MS, Math.max(10000, duration * (unit === 's' ? 1000 : unit === 'ms' ? 1 : unit === 'ns' ? 0.000001 : 1000)) + 10000);
-		const killTimer = setTimeout(() => {
-			try { proc.kill('SIGKILL'); } catch (e) {}
-			onExit(null, 'killed');
-		}, runtimeLimit);
+		// Quote filenames to be safe
+		const vhdFilesArg = vhdFilesList.map((f) => `"${f}"`).join(' ');
 
-		proc.on('close', (code, signal) => {
-			clearTimeout(killTimer);
-			onExit(code, signal);
-		});
+		const innerCmd = [
+			'pwd',
+			'ls -la',
+			'echo "VHD files inside container:"',
+			'ls -1 *.vhd || true',
+			`ghdl -a ${vhdFilesArg} tb.vhd && ghdl -e ${topEntity} && ghdl -r ${topEntity} --vcd=waveform.vcd --stop-time=${stopTimeStr}`,
+		].join(' && ');
 
-		run.proc = proc;
+		const durationMs = Math.min(MAX_RUN_TIME_MS, Math.max(10000, duration * (unit === 's' ? 1000 : unit === 'ms' ? 1 : unit === 'ns' ? 0.000001 : 1000)) + 10000);
+
+		const container = await runContainerCommand(runId, runDir, innerCmd, onStdoutLine, onExit, durationMs);
+		run.container = container;
 
 		return runId;
 
@@ -266,10 +395,7 @@ async function createRun({ commit, module, duration, unit }) {
 
 function attachSSE(runId, res) {
 	const run = runs.get(runId);
-	if (!run) {
-		res.status(404).end();
-		return;
-	}
+	if (!run) { res.status(404).end(); return; }
 
 	res.writeHead(200, {
 		'Content-Type': 'text/event-stream',
@@ -278,10 +404,7 @@ function attachSSE(runId, res) {
 	});
 	res.write('\n');
 
-	// send backlog
-	for (const line of run.stdoutLines) {
-		res.write(`data: ${line.replace(/\\n/g, '\\n')}\n\n`);
-	}
+	for (const line of run.stdoutLines) res.write(`data: ${line.replace(/\n/g, '\\n')}\n\n`);
 
 	if (run.finished) {
 		res.write(`event: done\ndata: ${JSON.stringify({code: run.exitCode})}\n\n`);
@@ -291,14 +414,9 @@ function attachSSE(runId, res) {
 
 	run.clients.push(res);
 
-	reqOnClose(res, () => {
-		// remove client
+	res.on('close', () => {
 		run.clients = run.clients.filter(r => r !== res);
 	});
-}
-
-function reqOnClose(res, cb) {
-	res.on('close', cb);
 }
 
 function getWaveformPath(runId) {
