@@ -90,15 +90,17 @@ function parseEntityNameFromVHDL(content) {
 
 async function runContainerCommand(runId, runDir, innerCmd, onStdoutLine, onExit, durationMs) {
 	// Read resource limits from environment (basic sane defaults)
-	const memMb = parseInt(process.env.SIM_MEMORY_MB || '512', 10); // MB
+	const memMb = parseInt(process.env.SIM_MEMORY_MB || '2048', 10); // MB (increased default to reduce OOMs)
 	const cpus = parseFloat(process.env.SIM_CPUS || '0.5'); // CPU cores
 	const memoryBytes = Math.max(32, memMb) * 1024 * 1024;
 	const nanoCpus = Math.max(0.01, cpus) * 1e9; // dockerode expects NanoCPUs
 
 	const hostConfig = {
-		Memory: memoryBytes,
+		// Only set Memory if memMb > 0. Setting Memory=0 would cause Docker to reject the value.
+		// If SIM_MEMORY_MB is 0, we omit the Memory key to allow the container to use host memory (use cautiously).
+		...(memMb > 0 ? { Memory: memoryBytes } : {}),
 		NanoCpus: Math.floor(nanoCpus),
-		PidsLimit: parseInt(process.env.SIM_PIDS_LIMIT || '128', 10),
+		PidsLimit: parseInt(process.env.SIM_PIDS_LIMIT || '1024', 10),
 	};
 
 	// Create a short-lived container that sleeps; we'll upload files then exec the command
@@ -204,6 +206,16 @@ async function runContainerCommand(runId, runDir, innerCmd, onStdoutLine, onExit
 		const info = await inspectExec();
 		if (typeof info.ExitCode === 'number') {
 			done = true;
+			// Inspect container state to see if OOM killed
+			let oomKilled = false;
+			try {
+				const cinfo = await container.inspect();
+				if (cinfo && cinfo.State && cinfo.State.OOMKilled) oomKilled = true;
+				// annotate run record for downstream reporting
+				try { const r = runs.get(runId); if (r) r.oomKilled = !!oomKilled; } catch (e) {}
+			} catch (e) {
+				console.warn('Failed to inspect container for OOM state', e);
+			}
 			// Try to copy waveform.vcd out of the container into runDir before exiting
 			try {
 				const archiveStream = await new Promise((resolve, reject) => {
@@ -306,8 +318,24 @@ async function createRun({ commit, module, duration, unit }) {
 		const tbContent = fs.readFileSync(tbDest, 'utf-8');
 		const topEntity = parseEntityNameFromVHDL(tbContent) || 'tb';
 
-		// Build stop time string
+		// Build stop time string (e.g. "100ns") — no space so GHDL parses it correctly
 		const stopTimeStr = `${duration}${unit}`;
+
+		// Compute requested_ns and wallclock timeout (ms)
+		let requested_ns = 0;
+		if (unit === 'ns') requested_ns = Number(duration) * 1;
+		else if (unit === 'us') requested_ns = Number(duration) * 1e3;
+		else if (unit === 'ms') requested_ns = Number(duration) * 1e6;
+		else if (unit === 's') requested_ns = Number(duration) * 1e9;
+		else requested_ns = Number(duration) * 1; // fallback assume ns
+
+		const requested_seconds = requested_ns / 1e9;
+		let wallTimeoutMs = Math.ceil(requested_seconds * 1000 * 10);
+		if (!Number.isFinite(wallTimeoutMs) || wallTimeoutMs <= 0) wallTimeoutMs = 5000;
+		wallTimeoutMs = Math.max(5000, wallTimeoutMs);
+		wallTimeoutMs = Math.min(MAX_RUN_TIME_MS, wallTimeoutMs);
+
+		console.log(`Run ${runId}: stopTime=${stopTimeStr}, requested_ns=${requested_ns}, wallTimeoutMs=${wallTimeoutMs}`);
 
 		// Start container run
 		const onStdoutLine = (line) => {
@@ -332,6 +360,35 @@ async function createRun({ commit, module, duration, unit }) {
 						const buf = fs.readFileSync(wfPath);
 						payload.waveform_b64 = buf.toString('base64');
 						payload.waveformName = 'waveform.vcd';
+						// compute max time from VCD (#<num>) markers
+						try {
+							const txt = buf.toString('utf8');
+							let max = null;
+							const re = /#(\d+)/g;
+							let m;
+							while ((m = re.exec(txt)) !== null) {
+								const v = parseInt(m[1], 10);
+								if (Number.isFinite(v)) {
+									if (max === null || v > max) max = v;
+								}
+							}
+							if (max !== null) payload.waveform_end_time = max;
+						} catch (e) {
+							console.error('Failed to parse waveform times:', e);
+						}
+						// include requested end time converted to VCD numeric units (assume ns base)
+						try {
+							const unit = run.unit || 'ns';
+							const dur = Number(run.duration) || 0;
+							let factor = 1; // ns -> 1
+							if (unit === 'us') factor = 1e3;
+							else if (unit === 'ms') factor = 1e6;
+							else if (unit === 's') factor = 1e9;
+							const requested_numeric = dur * factor;
+							payload.requested_end_time = requested_numeric;
+						} catch (e) {
+							console.error('Failed to compute requested_end_time', e);
+						}
 					} catch (e) {
 						console.error('Failed to read waveform for embedding:', e);
 					}
@@ -379,8 +436,11 @@ async function createRun({ commit, module, duration, unit }) {
 			`ghdl -a ${vhdFilesArg} tb.vhd && ghdl -e ${topEntity} && ghdl -r ${topEntity} --vcd=waveform.vcd --stop-time=${stopTimeStr}`,
 		].join(' && ');
 
-		const durationMs = Math.min(MAX_RUN_TIME_MS, Math.max(10000, duration * (unit === 's' ? 1000 : unit === 'ms' ? 1 : unit === 'ns' ? 0.000001 : 1000)) + 10000);
+		// Use the computed wallTimeoutMs as the kill timeout
+		const durationMs = wallTimeoutMs;
 
+		console.log(`Starting simulation run ${runId} with stopTime=${stopTimeStr} and cmd: ${innerCmd}`);
+		onStdoutLine(`Starting simulation with stopTime=${stopTimeStr}, wallTimeoutMs=${durationMs}ms`);
 		const container = await runContainerCommand(runId, runDir, innerCmd, onStdoutLine, onExit, durationMs);
 		run.container = container;
 

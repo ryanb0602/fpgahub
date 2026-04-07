@@ -1,228 +1,262 @@
 import React, { useEffect, useState, useRef } from 'react';
 
-// Minimal VCD parser and SVG waveform renderer
+// VCD parser (times converted to nanoseconds) and WaveDrom renderer
 
 function parseVCD(text) {
   const lines = text.split(/\r?\n/);
   const idToSignal = {}; // id -> name
-  let inVar = false;
-  let inDefinitions = true;
   let currentTime = 0;
   const events = []; // {time, id, value}
 
+  // detect timescale (e.g. "$timescale 1 ns $end")
+  let timescale_ns = 1; // default assume 1 ns per tick
+  const tsMatch = text.match(/\$timescale\s*([0-9.eE+-]+)?\s*(fs|ps|ns|us|ms|s)?\s*\$end/i);
+  if (tsMatch) {
+    const v = tsMatch[1] ? parseFloat(tsMatch[1]) : 1;
+    const unit = tsMatch[2] ? tsMatch[2].toLowerCase() : 'ns';
+    const unitToNs = { s: 1e9, ms: 1e6, us: 1e3, ns: 1, ps: 1e-3, fs: 1e-6 };
+    const factor = unitToNs[unit] || 1;
+    timescale_ns = v * factor;
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.length === 0) continue;
+    if (!line) continue;
     if (line.startsWith('$')) {
       if (line.startsWith('$var')) {
-        // example: $var wire 1 ! clk $end
         const parts = line.split(/\s+/);
-        // parts[0] = $var
-        // parts[3] = id
-        // parts[4] = name
-        const id = parts[3];
-        const name = parts.slice(4, parts.length - 1).join(' ');
-        idToSignal[id] = name;
-      }
-      if (line.startsWith('$enddefinitions')) {
-        inDefinitions = false;
+        // $var <type> <size> <id> <name> $end
+        if (parts.length >= 5) {
+          const id = parts[3];
+          const name = parts.slice(4, parts.length - 1).join(' ');
+          idToSignal[id] = name;
+        }
       }
       continue;
     }
-
     if (line.startsWith('#')) {
-      currentTime = parseInt(line.slice(1));
+      currentTime = parseInt(line.slice(1), 10);
       continue;
     }
-
-    // value change. Could be single-bit like "1!" or vector like "b101 id"
+    // value changes
     if (line[0] === 'b' || line[0] === 'B') {
-      // vector
       const m = line.match(/^b([01xXzZ]+)\s+(\S+)/);
-      if (m) {
-        const val = m[1];
-        const id = m[2];
-        events.push({ time: currentTime, id, value: val });
-      }
+      if (m) events.push({ time: currentTime, id: m[2], value: m[1] });
     } else {
-      // single-bit change
       const m = line.match(/^([01xzXZ])(.+)$/);
-      if (m) {
-        const val = m[1];
-        const id = m[2].trim();
-        events.push({ time: currentTime, id, value: val });
-      }
+      if (m) events.push({ time: currentTime, id: m[2].trim(), value: m[1] });
     }
   }
 
-  // Build per-signal timeline
+  // convert to nanoseconds
+  for (const ev of events) ev.time_ns = ev.time * timescale_ns;
+
+  // build signals map
   const signals = {};
-  for (const id of Object.keys(idToSignal)) {
-    signals[id] = { name: idToSignal[id], changes: [] };
-  }
-  // If unknown id occurs in events, add it
+  for (const id of Object.keys(idToSignal)) signals[id] = { name: idToSignal[id], changes: [] };
   for (const ev of events) {
     if (!signals[ev.id]) signals[ev.id] = { name: ev.id, changes: [] };
-    signals[ev.id].changes.push({ time: ev.time, value: ev.value });
+    signals[ev.id].changes.push({ time: ev.time_ns, value: ev.value });
   }
+  for (const id of Object.keys(signals)) signals[id].changes.sort((a, b) => a.time - b.time);
 
-  // Sort changes
-  for (const id of Object.keys(signals)) {
-    signals[id].changes.sort((a, b) => a.time - b.time);
-  }
-
-  // Build global timepoints
   const timeSet = new Set();
-  for (const ev of events) timeSet.add(ev.time);
+  for (const ev of events) timeSet.add(ev.time_ns);
   const times = Array.from(timeSet).sort((a, b) => a - b);
 
-  return { signals, times };
+  return { signals, times, timescale_ns };
 }
 
-// Simple SVG renderer
-function WaveSVG({ signals, times }) {
-  // layout
-  const rowH = 28;
-  const labelW = 160;
-  const width = Math.max(800, times.length * 6 + labelW + 40);
-  const height = Object.keys(signals).length * rowH + 40;
+// D3-based waveform renderer
+function renderWithD3(container, signals, times, requestedEndTime) {
+  // load d3 if needed
+  const ensureD3 = () => new Promise((resolve, reject) => {
+    if (window.d3) return resolve(window.d3);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/d3@7/dist/d3.min.js';
+    script.onload = () => resolve(window.d3);
+    script.onerror = (e) => reject(new Error('Failed to load d3'));
+    document.head.appendChild(script);
+  });
 
-  // Determine max time for scaling
-  const maxTime = times.length ? times[times.length - 1] : 1;
-  const timeToX = (t) => {
-    if (maxTime === 0) return labelW + 10;
-    return labelW + 10 + (t / maxTime) * (width - labelW - 40);
-  };
+  ensureD3().then((d3) => {
+    // clear container
+    container.innerHTML = '';
+    const signalsArr = Object.values(signals);
+    const rowH = 28;
+    const labelW = 160;
+    const padding = { top: 20, bottom: 20, left: 10, right: 20 };
+    const height = signalsArr.length * rowH + padding.top + padding.bottom;
+    const width = Math.max(800, Math.min(2000, container.clientWidth || 1000));
 
-  const rows = Object.values(signals);
+    // compute times in ns array
+    const tarr = times.length ? times.slice().sort((a,b) => a-b) : [0];
+    if (tarr[0] !== 0) tarr.unshift(0);
+    const maxTime = (requestedEndTime && requestedEndTime > 0) ? Math.min(tarr[tarr.length-1], requestedEndTime) : tarr[tarr.length-1];
 
-  return (
-    <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ border: '1px solid #ccc' }}>
-      {/* time grid */}
-      {times.map((t, i) => {
-        const x = timeToX(t);
-        return (
-          <g key={`g-${i}`}>
-            <line x1={x} y1={0} x2={x} y2={height} stroke="#eee" strokeWidth={1} />
-            <text x={x + 2} y={12} fontSize={10} fill="#666">{t}</text>
-          </g>
-        );
-      })}
+    const svg = d3.select(container).append('svg')
+      .attr('width', '100%')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .style('background', '#fff');
 
-      {/* signals */}
-      {rows.map((sig, idx) => {
-        const y = idx * rowH + 30;
-        // build segments from changes
-        const segs = [];
-        if (sig.changes.length === 0) {
-          // undefined
-          segs.push({ start: 0, end: maxTime || 1, value: 'x' });
+    const x = d3.scaleLinear().domain([0, maxTime || 1]).range([labelW, width - padding.right]);
+    const xAxis = d3.axisTop(x).ticks(10).tickFormat(d => d);
+    svg.append('g').attr('transform', `translate(0,${padding.top})`).call(xAxis).selectAll('text').style('font-size', '10px');
+
+    // rows
+    const g = svg.append('g').attr('transform', `translate(0,${padding.top + 20})`);
+
+    const tooltip = d3.select(container).append('div')
+      .style('position', 'absolute')
+      .style('pointer-events', 'none')
+      .style('background', 'rgba(0,0,0,0.8)')
+      .style('color', '#fff')
+      .style('padding', '6px 8px')
+      .style('border-radius', '6px')
+      .style('font-size', '12px')
+      .style('display', 'none');
+
+    signalsArr.forEach((s, i) => {
+      const y = i * rowH;
+      // label
+      g.append('text').attr('x', 6).attr('y', y + 12).text(s.name).style('font-size', '12px').style('fill', '#111');
+      // baseline
+      g.append('line').attr('x1', labelW).attr('x2', width - padding.right).attr('y1', y + 8).attr('y2', y + 8).style('stroke', '#e6e6e6');
+
+      // build segments
+      const segs = [];
+      if (!s.changes || s.changes.length === 0) {
+        segs.push({ start: 0, end: maxTime || 1, value: 'x' });
+      } else {
+        let prevT = 0; let prevV = 'x';
+        for (const ch of s.changes) {
+          if (ch.time > prevT) segs.push({ start: prevT, end: ch.time, value: prevV });
+          prevT = ch.time; prevV = ch.value;
+        }
+        segs.push({ start: prevT, end: maxTime || prevT + 1, value: prevV });
+      }
+
+      segs.forEach((seg) => {
+        const sStart = Math.max(0, Math.min(maxTime, seg.start));
+        const sEnd = Math.max(0, Math.min(maxTime, seg.end));
+        if (sEnd <= sStart) return;
+        const x1 = x(sStart);
+        const x2 = x(sEnd);
+        const isHigh = String(seg.value).toLowerCase().includes('1');
+        if (String(seg.value).toLowerCase() === 'x' || String(seg.value).toLowerCase() === 'z') {
+          g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 16).style('fill', '#fafafa').style('stroke', '#bdbdbd').style('stroke-dasharray', '4,2');
+        } else if (isHigh) {
+          g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 8).style('fill', '#2e7d32').style('rx', 2);
         } else {
-          // initial: before first change, set to last known? We'll set to x
-          let prevT = 0;
-          let prevV = 'x';
-          for (const ch of sig.changes) {
-            if (ch.time > prevT) {
-              segs.push({ start: prevT, end: ch.time, value: prevV });
-            }
-            prevT = ch.time;
-            prevV = ch.value;
-          }
-          // tail
-          segs.push({ start: prevT, end: maxTime || prevT + 1, value: prevV });
+          g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 8).style('fill', '#f5f5f5').style('rx', 2);
         }
 
-        return (
-          <g key={`sig-${idx}`}>
-            <text x={4} y={y + 4} fontSize={12} fill="#000">{sig.name}</text>
-            {/* waveform baseline */}
-            <line x1={labelW} y1={y} x2={width - 20} y2={y} stroke="#ddd" strokeWidth={1} />
+        // hover rect
+        g.append('rect')
+          .attr('x', x1)
+          .attr('y', y)
+          .attr('width', Math.max(1, x2 - x1))
+          .attr('height', 16)
+          .style('fill', 'transparent')
+          .on('mousemove', (event) => {
+            const [mx, my] = d3.pointer(event);
+            const t = Math.round(x.invert(mx));
+            tooltip.style('left', (event.clientX + 12) + 'px').style('top', (event.clientY + 12) + 'px').style('display', 'block').html(`<b>${s.name}</b><br/>t=${t}<br/>v=${seg.value}`);
+          })
+          .on('mouseout', () => tooltip.style('display', 'none'));
+      });
+    });
 
-            {segs.map((s, si) => {
-              const x1 = timeToX(s.start);
-              const x2 = timeToX(s.end);
-              const val = String(s.value);
-              // For multi-bit, treat any non-zero/one as x fill
-              const isHigh = val === '1' || (val.length > 1 && val.includes('1'));
-              const isLow = val === '0' || (val.length > 1 && !val.includes('1'));
+    // zoom/pan
+    const zoomed = (event) => {
+      const transform = event.transform;
+      const newX = transform.rescaleX(x);
+      svg.select('g').call(d3.axisTop(newX).ticks(10));
+      g.selectAll('rect').remove();
+      // re-render segments using newX
+      signalsArr.forEach((s, i) => {
+        const y = i * rowH;
+        const segs = [];
+        if (!s.changes || s.changes.length === 0) {
+          segs.push({ start: 0, end: maxTime || 1, value: 'x' });
+        } else {
+          let prevT = 0; let prevV = 'x';
+          for (const ch of s.changes) {
+            if (ch.time > prevT) segs.push({ start: prevT, end: ch.time, value: prevV });
+            prevT = ch.time; prevV = ch.value;
+          }
+          segs.push({ start: prevT, end: maxTime || prevT + 1, value: prevV });
+        }
+        segs.forEach((seg) => {
+          const sStart = Math.max(0, Math.min(maxTime, seg.start));
+          const sEnd = Math.max(0, Math.min(maxTime, seg.end));
+          if (sEnd <= sStart) return;
+          const x1 = newX(sStart);
+          const x2 = newX(sEnd);
+          const isHigh = String(seg.value).toLowerCase().includes('1');
+          if (String(seg.value).toLowerCase() === 'x' || String(seg.value).toLowerCase() === 'z') {
+            g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 16).style('fill', '#fafafa').style('stroke', '#bdbdbd').style('stroke-dasharray', '4,2');
+          } else if (isHigh) {
+            g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 8).style('fill', '#2e7d32').style('rx', 2);
+          } else {
+            g.append('rect').attr('x', x1).attr('y', y).attr('width', Math.max(1, x2 - x1)).attr('height', 8).style('fill', '#f5f5f5').style('rx', 2);
+          }
+        });
+      });
+    };
 
-              const yTop = y - 8;
-              const yBot = y + 8;
+    svg.call(d3.zoom().scaleExtent([0.2, 50]).on('zoom', zoomed));
 
-              if (val === 'x' || val === 'z' || val === 'X' || val === 'Z') {
-                // draw dashed rectangle to indicate unknown/highZ
-                return (
-                  <rect key={si} x={x1} y={yTop} width={Math.max(1, x2 - x1)} height={16} fill="#f6f6f6" stroke="#999" strokeDasharray="4,2" />
-                );
-              }
-
-              if (isHigh) {
-                // draw high line
-                return (
-                  <g key={si}>
-                    <rect x={x1} y={yTop} width={Math.max(1, x2 - x1)} height={8} fill="#4caf50" />
-                    <rect x={x1} y={y} width={Math.max(1, x2 - x1)} height={2} fill="#333" />
-                  </g>
-                );
-              }
-
-              // low
-              return (
-                <g key={si}>
-                  <rect x={x1} y={y} width={Math.max(1, x2 - x1)} height={8} fill="#e0e0e0" />
-                  <rect x={x1} y={y - 2} width={Math.max(1, x2 - x1)} height={2} fill="#333" />
-                </g>
-              );
-            })}
-          </g>
-        );
-      })}
-    </svg>
-  );
+  }).catch((err) => {
+    container.innerHTML = '<div style="color:#b00">Failed to load d3: ' + String(err) + '</div>';
+  });
 }
 
-export default function WaveformViewer({ location }) {
+export default function WaveformViewer() {
   const params = new URLSearchParams(window.location.search);
   const runId = params.get('runId');
-  const [vcdText, setVcdText] = useState(null);
-  const [parsed, setParsed] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!runId) return setError('Missing runId');
-    // First, check if the backend embedded the waveform in sessionStorage via SSE
+    if (!runId) { setError('Missing runId'); setLoading(false); return; }
+
+    // Try in-memory stored waveform first (localStorage/sessionStorage)
     try {
       const key = `waveform_b64_${runId}`;
-      const b64 = sessionStorage.getItem(key);
+      const b64 = localStorage.getItem(key) || sessionStorage.getItem(key);
       if (b64) {
         const txt = atob(b64);
-        setVcdText(txt);
-        const p = parseVCD(txt);
-        setParsed(p);
+        const { signals, times } = parseVCD(txt);
+        renderWithD3(containerRef.current, signals, times, null);
+        setLoading(false);
         return;
       }
     } catch (e) {
-      console.warn('Failed to read embedded waveform from sessionStorage', e);
+      console.warn('Failed to read embedded waveform from storage', e);
     }
 
-    // Fallback: fetch from API
-    fetch(`${process.env.REACT_APP_API_BASE}/api/run/${runId}/waveform`, { credentials: 'include' })
+    // Fallback: fetch waveform from server run endpoint
+    const base = (process.env.REACT_APP_API_BASE || window.location.origin).replace(/\/$/, '');
+    fetch(`${base}/run/${runId}/waveform`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`Server responded ${r.status}`);
         const t = await r.text();
-        setVcdText(t);
-        const p = parseVCD(t);
-        setParsed(p);
+        const { signals, times } = parseVCD(t);
+        renderWithD3(containerRef.current, signals, times, null);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(String(err)))
+      .finally(() => setLoading(false));
+
   }, [runId]);
 
   return (
     <div style={{ padding: 16 }}>
       <h2>Waveform Viewer - run {runId}</h2>
       {error && <div style={{ color: 'red' }}>{error}</div>}
-      {!error && !parsed && <div>Loading...</div>}
-      {parsed && <WaveSVG signals={parsed.signals} times={parsed.times} />}
+      {loading && !error && <div>Loading waveform...</div>}
+      <div ref={containerRef} id={`wavedrom_viewer_${runId}`} style={{ minWidth: 400, minHeight: 240 }} />
       <div style={{ marginTop: 16 }}>
         <a href={`${process.env.REACT_APP_API_BASE}/api/run/${runId}/waveform`} target="_blank" rel="noreferrer">Download VCD</a>
       </div>

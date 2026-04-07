@@ -153,7 +153,12 @@ export const ModuleViewer = ({ name, commit }) => {
 					const payload = JSON.parse(ev.data);
 					if (payload && payload.waveform_b64) {
 						const key = `waveform_b64_${runId}`;
-						sessionStorage.setItem(key, payload.waveform_b64);
+						// Use localStorage so a new window can access the stored waveform
+						localStorage.setItem(key, payload.waveform_b64);
+						// store requested end time (numeric) so viewer can respect requested timeframe
+						if (payload.requested_end_time) {
+							localStorage.setItem(`waveform_req_end_${runId}`, String(payload.requested_end_time));
+						}
 						setCurrentRunId(runId);
 						setSimOutput((s) => s + `Waveform received for run ${runId}\n`);
 					}
@@ -208,7 +213,7 @@ export const ModuleViewer = ({ name, commit }) => {
 							</Button>
 							<Button variant="ghost" size="2" onClick={() => {
 								if (currentRunId) {
-									window.open(`${API_BASE}/api/run/${currentRunId}/waveform`, '_blank');
+									window.open(`${window.location.origin}/waveform?runId=${currentRunId}`, '_blank');
 								}
 							}} disabled={!currentRunId}>
 								<Text>Waveform</Text>

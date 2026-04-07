@@ -63,6 +63,11 @@ export default function AppRouter() {
 				/>
 
 				<Route
+					path="/waveform"
+					element={<WaveformViewer />}
+				/>
+
+				<Route
 					path="*"
 					element={
 						<div
