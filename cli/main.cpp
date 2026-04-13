@@ -7,6 +7,8 @@
 #include "./include/utils.h"
 #include <string>
 
+#include "./include/ghdl_harness.h"
+
 int main(int argc, char **argv) {
 
   Authenticator auth;
@@ -39,6 +41,19 @@ int main(int argc, char **argv) {
     builder.printTreeWrapper();
   });
 
+auto astTest = app.add_subcommand("ast-test", "Parse and print module tree using GHDL.");
+  std::string vhdl_file;
+  astTest->add_option("file", vhdl_file, "VHDL file to parse")->required();
+
+  std::vector<std::string> ghdl_args;
+  // Change 'app' to 'astTest' here:
+  astTest->add_option("--ghdl-args", ghdl_args, "Additional arguments to pass to GHDL (e.g. -fsynopsys)");
+
+  astTest->callback([&]() {
+      GhdlHarness harness;
+      harness.print_module_tree(vhdl_file, ghdl_args);
+  });
+
   auto printRoots =
       app.add_subcommand("module-roots", "Print the module roots.");
   printRoots->callback([&]() {
@@ -47,6 +62,7 @@ int main(int argc, char **argv) {
   });
 
   CLI11_PARSE(app, argc, argv);
+
 
   return 0;
 }
