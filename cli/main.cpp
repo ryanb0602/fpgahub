@@ -41,17 +41,19 @@ int main(int argc, char **argv) {
     builder.printTreeWrapper();
   });
 
-auto astTest = app.add_subcommand("ast-test", "Parse and print module tree using GHDL.");
+  auto astTest =
+      app.add_subcommand("ast-test", "Parse and print module tree using GHDL.");
   std::string vhdl_file;
   astTest->add_option("file", vhdl_file, "VHDL file to parse")->required();
 
   std::vector<std::string> ghdl_args;
   // Change 'app' to 'astTest' here:
-  astTest->add_option("--ghdl-args", ghdl_args, "Additional arguments to pass to GHDL (e.g. -fsynopsys)");
+  astTest->add_option("--ghdl-args", ghdl_args,
+                      "Additional arguments to pass to GHDL (e.g. -fsynopsys)");
 
   astTest->callback([&]() {
-      GhdlHarness harness;
-      harness.print_module_tree(vhdl_file, ghdl_args);
+    GhdlHarness harness;
+    harness.print_module_tree(vhdl_file, ghdl_args);
   });
 
   auto printRoots =
@@ -61,8 +63,13 @@ auto astTest = app.add_subcommand("ast-test", "Parse and print module tree using
     builder.printRoots();
   });
 
-  CLI11_PARSE(app, argc, argv);
+  auto yosysDag =
+      app.add_subcommand("yosys-dag", "Parse and print the Yosys DAG");
+  yosysDag->callback([&]() {
 
+  });
+
+  CLI11_PARSE(app, argc, argv);
 
   return 0;
 }
