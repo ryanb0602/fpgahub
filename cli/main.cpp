@@ -5,11 +5,14 @@
 #include "./include/module_tree_builder.h"
 #include "./include/routes.h"
 #include "./include/utils.h"
+
+#include "./include/yosys_wrapper.h"
+
 #include <string>
 
-#include "./include/ghdl_harness.h"
-
 int main(int argc, char **argv) {
+
+  yosys_interface yosys;
 
   Authenticator auth;
   ModuleTreeBuilder builder;
@@ -32,42 +35,9 @@ int main(int argc, char **argv) {
   auto status = app.add_subcommand("status", "Check file change status.");
   status->callback([&]() { status_route(tracker); });
 
-  auto commit = app.add_subcommand("commit", "Commit changes to the remote.");
-  commit->callback([&]() { commit_route(tracker, auth, builder); });
-
-  auto printTree = app.add_subcommand("module-tree", "Print the module tree.");
-  printTree->callback([&]() {
-    builder.buildTree();
-    builder.printTreeWrapper();
-  });
-
-  auto astTest =
-      app.add_subcommand("ast-test", "Parse and print module tree using GHDL.");
-  std::string vhdl_file;
-  astTest->add_option("file", vhdl_file, "VHDL file to parse")->required();
-
-  std::vector<std::string> ghdl_args;
-  // Change 'app' to 'astTest' here:
-  astTest->add_option("--ghdl-args", ghdl_args,
-                      "Additional arguments to pass to GHDL (e.g. -fsynopsys)");
-
-  astTest->callback([&]() {
-    GhdlHarness harness;
-    harness.print_module_tree(vhdl_file, ghdl_args);
-  });
-
-  auto printRoots =
-      app.add_subcommand("module-roots", "Print the module roots.");
-  printRoots->callback([&]() {
-    builder.buildTree();
-    builder.printRoots();
-  });
-
   auto yosysDag =
       app.add_subcommand("yosys-dag", "Parse and print the Yosys DAG");
-  yosysDag->callback([&]() {
-
-  });
+  yosysDag->callback([&]() { yosys.test_project_read(); });
 
   CLI11_PARSE(app, argc, argv);
 
