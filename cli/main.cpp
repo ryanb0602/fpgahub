@@ -6,13 +6,11 @@
 #include "./include/routes.h"
 #include "./include/utils.h"
 
-#include "./include/yosys_wrapper.h"
+#include "./include/slang_wrapper.h"
 
 #include <string>
 
 int main(int argc, char **argv) {
-
-  yosys_interface yosys;
 
   Authenticator auth;
   ModuleTreeBuilder builder;
@@ -35,9 +33,11 @@ int main(int argc, char **argv) {
   auto status = app.add_subcommand("status", "Check file change status.");
   status->callback([&]() { status_route(tracker); });
 
-  auto yosysDag =
-      app.add_subcommand("yosys-dag", "Parse and print the Yosys DAG");
-  yosysDag->callback([&]() { yosys.test_project_read(); });
+  auto slang = app.add_subcommand("slang", "slang test");
+  slang->callback([&]() {
+    slang_wrapper slang_wrap;
+    slang_wrap.compile_current_dir();
+  });
 
   CLI11_PARSE(app, argc, argv);
 
