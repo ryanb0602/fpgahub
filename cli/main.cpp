@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   auto slang = app.add_subcommand("slang", "slang test");
   slang->callback([&]() {
     slang_wrapper slang_wrap;
-    slang_wrap.traverse_tree();
+    slang_wrap.load_to_FPGAHub_format();
   });
 
   CLI11_PARSE(app, argc, argv);

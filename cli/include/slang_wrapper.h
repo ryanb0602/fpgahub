@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <stack>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,10 @@
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/SourceManager.h"
 
+#include "../include/graph.h"
+
+#include <unordered_set>
+
 #ifndef SLANG_WRAPPER_H
 #define SLANG_WRAPPER_H
 
@@ -25,12 +30,16 @@ public:
     if (err > 0) {
       std::cerr << "Slang wrapper is not initialized properly." << std::endl;
     }
+
+    this->FPGAHub_tree = new graph;
+    this->builder = new GraphBuilder(this->sourceManager, this->FPGAHub_tree);
   }
 
-  void traverse_tree() {
-    ASTTraverse traverser;
+  void load_to_FPGAHub_format() { // 1. Get the root of the elaborated design
     const auto &root = this->compilation->getRoot();
-    traverser.visit(root);
+
+    // 2. Tell the root to accept your GraphBuilder visitor
+    root.visit(*(this->builder));
   }
 
 private:
@@ -42,17 +51,23 @@ private:
   std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees;
   std::unique_ptr<slang::ast::Compilation> compilation;
 
-  // tool to traverse the AST
-  class ASTTraverse
-      : public slang::ast::ASTVisitor<ASTTraverse,
-                                      slang::ast::VisitFlags::AllGood> {
+  graph *FPGAHub_tree;
 
+  // tool to build the FPGAHub representation of the tree
+  class GraphBuilder : public slang::ast::ASTVisitor<GraphBuilder> {
   public:
+    GraphBuilder(const slang::SourceManager &sm, graph *graph_pt)
+        : sourceManager(sm), FPGAHub_tree(graph_pt) {};
     void handle(const slang::ast::InstanceSymbol &node);
 
   private:
-    int indent_level = 0;
+    const slang::SourceManager &sourceManager;
+
+    std::stack<graph::module *> parent_modules;
+    graph *FPGAHub_tree;
   };
+
+  GraphBuilder *builder;
 };
 
 #endif

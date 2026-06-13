@@ -75,16 +75,38 @@ int slang_wrapper::parse_working_directory() {
   return 0;
 }
 
-void slang_wrapper::ASTTraverse::handle(
+void slang_wrapper::GraphBuilder::handle(
     const slang::ast::InstanceSymbol &node) {
-  std::cout << std::string(indent_level * 2, ' ') << "|- [Instance] "
-            << node.name << " (Module: " << node.getDefinition().name << ")\n";
+  graph::module *new_module = new graph::module;
+  new_module->id = "fake_id_for_now";
 
-  // Increase depth before visiting children
-  indent_level++;
+  new_module->name = std::string(node.name);
 
+  // pull the file the current node is from, save it
+  auto location = node.getDefinition().location;
+  new_module->file = std::string(this->sourceManager.getFileName(location));
+
+  // create back edge for this node
+  if (!this->parent_modules.empty()) {
+    graph::edge *new_edge = new graph::edge;
+    new_edge->from = this->parent_modules.top();
+    new_edge->to = new_module;
+
+    new_edge->parent_port_hash = "PPH_FAKE";
+    new_edge->child_port_hash = "CPH_FAKE";
+
+    this->FPGAHub_tree->edges.push_back(new_edge);
+  }
+
+  // here is where you would calculate the canonical structure hash for the
+  // module
+
+  this->parent_modules.push(new_module);
+  this->FPGAHub_tree->modules.push_back(new_module);
+
+  // continue traversing
   this->visitDefault(node);
 
-  // Decrease depth after returning from children
-  indent_level--;
+  // pop the parent
+  this->parent_modules.pop();
 }
