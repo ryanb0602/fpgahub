@@ -22,9 +22,19 @@ int slang_wrapper::parse_working_directory() {
         // actually parse the syntax tree
         auto tree_result =
             slang::syntax::SyntaxTree::fromFile(file_path, this->sourceManager);
+
         // save our valid trees and add them to the current run
         if (tree_result.has_value()) {
           auto tree = tree_result.value();
+
+          // if a file didn't parse well, prevent it from causing a cascading
+          // error
+          if (!tree->diagnostics().empty()) {
+            std::cerr << "Skipping syntactically broken file: "
+                      << entry.path().filename().string() << std::endl;
+            continue;
+          }
+
           this->syntaxTrees.push_back(tree);
           this->compilation->addSyntaxTree(tree);
         } else {
@@ -44,6 +54,9 @@ int slang_wrapper::parse_working_directory() {
   if (!diagnostics.empty()) {
 
     slang::DiagnosticEngine engine(this->sourceManager);
+
+    engine.setIgnoreAllWarnings(true);
+
     auto client = std::make_shared<slang::TextDiagnosticClient>();
     engine.addClient(client);
 
