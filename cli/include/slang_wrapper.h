@@ -10,6 +10,8 @@
 #include "slang/ast/Statement.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/diagnostics/DiagnosticEngine.h"
+#include "slang/diagnostics/TextDiagnosticClient.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/SourceManager.h"
 
@@ -20,9 +22,15 @@ class slang_wrapper {
 public:
   slang_wrapper() {
     int err = this->parse_working_directory();
-    if (err > 1) {
+    if (err > 0) {
       std::cerr << "Slang wrapper is not initialized properly." << std::endl;
     }
+  }
+
+  void traverse_tree() {
+    ASTTraverse traverser;
+    const auto &root = this->compilation->getRoot();
+    traverser.visit(root);
   }
 
 private:
@@ -33,6 +41,18 @@ private:
   slang::SourceManager sourceManager;
   std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees;
   std::unique_ptr<slang::ast::Compilation> compilation;
+
+  // tool to traverse the AST
+  class ASTTraverse
+      : public slang::ast::ASTVisitor<ASTTraverse,
+                                      slang::ast::VisitFlags::AllGood> {
+
+  public:
+    void handle(const slang::ast::InstanceSymbol &node);
+
+  private:
+    int indent_level = 0;
+  };
 };
 
 #endif

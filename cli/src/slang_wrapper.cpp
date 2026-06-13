@@ -1,10 +1,13 @@
-#include "../include//slang_wrapper.h"
+#include "../include/slang_wrapper.h"
 
 namespace fs = std::filesystem;
 
 int slang_wrapper::parse_working_directory() {
 
-  this->compilation = std::make_unique<slang::ast::Compilation>();
+  slang::ast::CompilationOptions options;
+  options.flags |= slang::ast::CompilationFlags::IgnoreUnknownModules;
+
+  this->compilation = std::make_unique<slang::ast::Compilation>(options);
 
   fs::path current_dir = fs::current_path();
   // iterate through the files in the working directory, parsing
@@ -39,6 +42,17 @@ int slang_wrapper::parse_working_directory() {
 
   auto diagnostics = this->compilation->getAllDiagnostics();
   if (!diagnostics.empty()) {
+
+    slang::DiagnosticEngine engine(this->sourceManager);
+    auto client = std::make_shared<slang::TextDiagnosticClient>();
+    engine.addClient(client);
+
+    for (const auto &diag : diagnostics) {
+      engine.issue(diag);
+    }
+
+    std::cerr << client->getString() << std::endl;
+
     std::cerr << "Compilation finished with " << diagnostics.size()
               << " errors/warnings." << std::endl;
     return 0;
@@ -46,4 +60,18 @@ int slang_wrapper::parse_working_directory() {
 
   std::cout << "Compilation successful with no errors.";
   return 0;
+}
+
+void slang_wrapper::ASTTraverse::handle(
+    const slang::ast::InstanceSymbol &node) {
+  std::cout << std::string(indent_level * 2, ' ') << "|- [Instance] "
+            << node.name << " (Module: " << node.getDefinition().name << ")\n";
+
+  // Increase depth before visiting children
+  indent_level++;
+
+  this->visitDefault(node);
+
+  // Decrease depth after returning from children
+  indent_level--;
 }
