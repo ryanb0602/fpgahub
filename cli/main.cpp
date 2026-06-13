@@ -34,10 +34,7 @@ int main(int argc, char **argv) {
   status->callback([&]() { status_route(tracker); });
 
   auto slang = app.add_subcommand("slang", "slang test");
-  slang->callback([&]() {
-    slang_wrapper slang_wrap;
-    slang_wrap.compile_current_dir();
-  });
+  slang->callback([&]() { slang_wrapper slang_wrap; });
 
   CLI11_PARSE(app, argc, argv);
 
