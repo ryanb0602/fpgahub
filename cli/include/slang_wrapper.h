@@ -11,12 +11,15 @@
 #include "slang/ast/Statement.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/MemberSymbols.h"
+#include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/SourceManager.h"
 
 #include "../include/graph.h"
+#include "../include/sha256.h"
 
 #include <unordered_set>
 
@@ -35,11 +38,20 @@ public:
     this->builder = new GraphBuilder(this->sourceManager, this->FPGAHub_tree);
   }
 
-  void load_to_FPGAHub_format() { // 1. Get the root of the elaborated design
+  void load_to_FPGAHub_format() {
     const auto &root = this->compilation->getRoot();
 
-    // 2. Tell the root to accept your GraphBuilder visitor
     root.visit(*(this->builder));
+
+    for (const graph::module *module : this->FPGAHub_tree->modules) {
+      std::cout << "Name: " << module->name << " File: " << module->file
+                << " Hash: " << module->hash << std::endl;
+    }
+
+    for (const graph::edge *edge : this->FPGAHub_tree->edges) {
+      std::cout << "From: " << edge->from->name << " To: " << edge->to->file
+                << std::endl;
+    }
   }
 
 private:
@@ -68,6 +80,62 @@ private:
   };
 
   GraphBuilder *builder;
+
+  // visitor that visits all non-module structural elements of a tree and
+  // creates a canonical hash
+  class CanonicalHashBuilder
+      : public slang::ast::ASTVisitor<CanonicalHashBuilder,
+                                      slang::ast::VisitFlags::AllGood> {
+  public:
+    bool is_sub_visitor = false;
+    std::string canonical_string = "";
+
+    // we do not want to visit or include modules, this is to create a
+    // structural hash for just the module of interest. this will ensure modules
+    // (instances in slang) are skipped
+    void handle(const slang::ast::InstanceSymbol &node) { return; }
+
+    // exploration functions to build the string
+
+    void handle(const slang::ast::ContinuousAssignSymbol &node);
+    void handle(const slang::ast::VariableSymbol &node);
+
+    template <typename T> void handle(const T &node) {
+      if constexpr (std::is_base_of_v<slang::ast::Expression, T>) {
+        this->canonical_string +=
+            "EXPR:" + std::string(slang::ast::toString(node.kind)) + ";";
+      } else if constexpr (std::is_base_of_v<slang::ast::Statement, T>) {
+        this->canonical_string +=
+            "STMT:" + std::string(slang::ast::toString(node.kind)) + ";";
+      }
+
+      this->visitDefault(node);
+    }
+
+    void handle(const slang::ast::NamedValueExpression &node) {
+      this->canonical_string +=
+          "EXPR:NamedValue:" + std::string(node.symbol.name) + ";";
+      this->visitDefault(node);
+    }
+
+    void handle(const slang::ast::IntegerLiteral &node) {
+      this->canonical_string += "EXPR:Int:" + node.getValue().toString() + ";";
+      this->visitDefault(node);
+    }
+
+    void handle(const slang::ast::StringLiteral &node) {
+      this->canonical_string +=
+          "EXPR:String:" + std::string(node.getValue()) + ";";
+      this->visitDefault(node);
+    }
+
+    std::string get_canonical_string();
+    std::string get_raw_string();
+
+  private:
+    std::vector<std::string> components;
+    std::string capture_subtree(const auto &node);
+  };
 };
 
 #endif

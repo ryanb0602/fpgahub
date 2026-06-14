@@ -86,6 +86,15 @@ void slang_wrapper::GraphBuilder::handle(
   auto location = node.getDefinition().location;
   new_module->file = std::string(this->sourceManager.getFileName(location));
 
+  slang_wrapper::CanonicalHashBuilder hash_builder;
+  node.body.visit(hash_builder);
+
+  std::string raw_string = hash_builder.get_canonical_string();
+
+  SHA256 hasher;
+  hasher.update(raw_string);
+  new_module->hash = hasher.final();
+
   // create back edge for this node
   if (!this->parent_modules.empty()) {
     graph::edge *new_edge = new graph::edge;
@@ -109,4 +118,45 @@ void slang_wrapper::GraphBuilder::handle(
 
   // pop the parent
   this->parent_modules.pop();
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::ContinuousAssignSymbol &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("ASSIGN:" +
+                               capture_subtree(node.getAssignment()));
+    return;
+  }
+  this->visitDefault(node);
+}
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::VariableSymbol &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("VAR:" + std::string(node.name));
+    return;
+  }
+  this->visitDefault(node);
+}
+
+std::string slang_wrapper::CanonicalHashBuilder::get_canonical_string() {
+  if (this->is_sub_visitor)
+    return "";
+
+  std::sort(this->components.begin(), this->components.end());
+  std::string final_aggregate = "";
+  for (const auto &comp : this->components) {
+    final_aggregate += comp + "\n";
+  }
+  return final_aggregate;
+}
+std::string slang_wrapper::CanonicalHashBuilder::get_raw_string() {
+  return canonical_string;
+}
+
+std::string
+slang_wrapper::CanonicalHashBuilder::capture_subtree(const auto &node) {
+  slang_wrapper::CanonicalHashBuilder sub_visitor;
+  sub_visitor.is_sub_visitor = true;
+  node.visit(sub_visitor);
+  return sub_visitor.get_raw_string();
 }
