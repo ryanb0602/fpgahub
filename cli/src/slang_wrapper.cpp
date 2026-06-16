@@ -1,4 +1,5 @@
 #include "../include/slang_wrapper.h"
+#include "slang/ast/SemanticFacts.h"
 
 namespace fs = std::filesystem;
 
@@ -88,12 +89,17 @@ void slang_wrapper::GraphBuilder::handle(
 
   slang_wrapper::CanonicalHashBuilder hash_builder;
   node.body.visit(hash_builder);
-
   std::string raw_string = hash_builder.get_canonical_string();
-
   SHA256 hasher;
   hasher.update(raw_string);
   new_module->hash = hasher.final();
+
+  slang_wrapper::PortHashVisitor port_visitor;
+  node.body.visit(port_visitor);
+  std::string raw_ps = port_visitor.port_signature;
+  SHA256 port_hasher;
+  port_hasher.update(raw_ps);
+  new_module->interface_port_hash = port_hasher.final();
 
   // create back edge for this node
   if (!this->parent_modules.empty()) {
@@ -101,10 +107,12 @@ void slang_wrapper::GraphBuilder::handle(
     new_edge->from = this->parent_modules.top();
     new_edge->to = new_module;
 
-    new_edge->parent_port_hash = "PPH_FAKE";
-    new_edge->child_port_hash = "CPH_FAKE";
-
     this->FPGAHub_tree->edges.push_back(new_edge);
+
+    graph::compatibility_tracker tracker;
+    tracker.to = new_module;
+    tracker.interface_port_hash = new_module->interface_port_hash;
+    new_edge->from->child_interfaces.push_back(tracker);
   }
 
   // here is where you would calculate the canonical structure hash for the
@@ -191,4 +199,22 @@ void slang_wrapper::CanonicalHashBuilder::handle(const T &node) {
   }
 
   this->visitDefault(node);
+}
+
+void slang_wrapper::PortHashVisitor::handle(
+    const slang::ast::PortSymbol &node) {
+  // start with undefined direction
+  std::string dir = "UNKNOWN";
+
+  // set direction according to real direction
+  if (node.direction == slang::ast::ArgumentDirection::In)
+    dir = "IN";
+  else if (node.direction == slang::ast::ArgumentDirection::Out)
+    dir = "OUT";
+  else if (node.direction == slang::ast::ArgumentDirection::InOut)
+    dir = "INOUT";
+
+  size_t width = node.getType().getBitWidth();
+  this->port_signature += "PORT:" + std::string(node.name) + ":DIR:" + dir +
+                          ":WIDTH:" + std::to_string(width) + "\n";
 }

@@ -12,6 +12,7 @@
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/MemberSymbols.h"
+#include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
@@ -47,7 +48,12 @@ public:
     for (const graph::module *module : this->FPGAHub_tree->modules) {
       std::cout << "Name: " << module->name << " ID: " << module->id
                 << " File: " << module->file << " Hash: " << module->hash
-                << std::endl;
+                << " Port hash: " << module->interface_port_hash << std::endl;
+
+      for (const graph::compatibility_tracker ct : module->child_interfaces) {
+        std::cout << "To: " << ct.to->name
+                  << " Port hash: " << ct.interface_port_hash << std::endl;
+      }
     }
 
     for (const graph::edge *edge : this->FPGAHub_tree->edges) {
@@ -93,8 +99,8 @@ private:
     std::string canonical_string = "";
 
     // we do not want to visit or include modules, this is to create a
-    // structural hash for just the module of interest. this will ensure modules
-    // (instances in slang) are skipped
+    // structural hash for just the module of interest. this will ensure
+    // modules (instances in slang) are skipped
     void handle(const slang::ast::InstanceSymbol &node) { return; }
 
     // exploration functions to build the string
@@ -116,6 +122,18 @@ private:
   private:
     std::vector<std::string> components;
     std::string capture_subtree(const auto &node);
+  };
+
+  class PortHashVisitor
+      : public slang::ast::ASTVisitor<PortHashVisitor,
+                                      slang::ast::VisitFlags::AllGood> {
+  public:
+    std::string port_signature = "";
+
+    // do not traverse down into modules
+    void handle(const slang::ast::InstanceSymbol &node) { return; }
+
+    void handle(const slang::ast::PortSymbol &node);
   };
 };
 
