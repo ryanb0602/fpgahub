@@ -160,3 +160,35 @@ slang_wrapper::CanonicalHashBuilder::capture_subtree(const auto &node) {
   node.visit(sub_visitor);
   return sub_visitor.get_raw_string();
 }
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::NamedValueExpression &node) {
+  this->canonical_string +=
+      "EXPR:NamedValue:" + std::string(node.symbol.name) + ";";
+  this->visitDefault(node);
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::IntegerLiteral &node) {
+  this->canonical_string += "EXPR:Int:" + node.getValue().toString() + ";";
+  this->visitDefault(node);
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::StringLiteral &node) {
+  this->canonical_string += "EXPR:String:" + std::string(node.getValue()) + ";";
+  this->visitDefault(node);
+}
+
+template <typename T>
+void slang_wrapper::CanonicalHashBuilder::handle(const T &node) {
+  if constexpr (std::is_base_of_v<slang::ast::Expression, T>) {
+    this->canonical_string +=
+        "EXPR:" + std::string(slang::ast::toString(node.kind)) + ";";
+  } else if constexpr (std::is_base_of_v<slang::ast::Statement, T>) {
+    this->canonical_string +=
+        "STMT:" + std::string(slang::ast::toString(node.kind)) + ";";
+  }
+
+  this->visitDefault(node);
+}

@@ -102,34 +102,13 @@ private:
     void handle(const slang::ast::ContinuousAssignSymbol &node);
     void handle(const slang::ast::VariableSymbol &node);
 
-    template <typename T> void handle(const T &node) {
-      if constexpr (std::is_base_of_v<slang::ast::Expression, T>) {
-        this->canonical_string +=
-            "EXPR:" + std::string(slang::ast::toString(node.kind)) + ";";
-      } else if constexpr (std::is_base_of_v<slang::ast::Statement, T>) {
-        this->canonical_string +=
-            "STMT:" + std::string(slang::ast::toString(node.kind)) + ";";
-      }
+    template <typename T> void handle(const T &node);
 
-      this->visitDefault(node);
-    }
+    void handle(const slang::ast::NamedValueExpression &node);
 
-    void handle(const slang::ast::NamedValueExpression &node) {
-      this->canonical_string +=
-          "EXPR:NamedValue:" + std::string(node.symbol.name) + ";";
-      this->visitDefault(node);
-    }
+    void handle(const slang::ast::IntegerLiteral &node);
 
-    void handle(const slang::ast::IntegerLiteral &node) {
-      this->canonical_string += "EXPR:Int:" + node.getValue().toString() + ";";
-      this->visitDefault(node);
-    }
-
-    void handle(const slang::ast::StringLiteral &node) {
-      this->canonical_string +=
-          "EXPR:String:" + std::string(node.getValue()) + ";";
-      this->visitDefault(node);
-    }
+    void handle(const slang::ast::StringLiteral &node);
 
     std::string get_canonical_string();
     std::string get_raw_string();
