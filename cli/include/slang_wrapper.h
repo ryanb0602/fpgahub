@@ -42,24 +42,7 @@ public:
 
   void load_to_FPGAHub_format() {
     const auto &root = this->compilation->getRoot();
-
     root.visit(*(this->builder));
-
-    for (const graph::module *module : this->FPGAHub_tree->modules) {
-      std::cout << "Name: " << module->name << " ID: " << module->id
-                << " File: " << module->file << " Hash: " << module->hash
-                << " Port hash: " << module->interface_port_hash << std::endl;
-
-      for (const graph::compatibility_tracker ct : module->child_interfaces) {
-        std::cout << "To: " << ct.to->name
-                  << " Port hash: " << ct.interface_port_hash << std::endl;
-      }
-    }
-
-    for (const graph::edge *edge : this->FPGAHub_tree->edges) {
-      std::cout << "From: " << edge->from->name << " To: " << edge->to->name
-                << std::endl;
-    }
   }
 
 private:
