@@ -78,7 +78,7 @@ int slang_wrapper::parse_working_directory() {
 void slang_wrapper::GraphBuilder::handle(
     const slang::ast::InstanceSymbol &node) {
   graph::module *new_module = new graph::module;
-  new_module->id = "fake_id_for_now";
+  new_module->id = generate_uuid_v4();
 
   new_module->name = std::string(node.name);
 

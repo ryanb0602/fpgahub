@@ -20,6 +20,7 @@
 
 #include "../include/graph.h"
 #include "../include/sha256.h"
+#include "../include/utils.h"
 
 #include <unordered_set>
 
@@ -44,12 +45,13 @@ public:
     root.visit(*(this->builder));
 
     for (const graph::module *module : this->FPGAHub_tree->modules) {
-      std::cout << "Name: " << module->name << " File: " << module->file
-                << " Hash: " << module->hash << std::endl;
+      std::cout << "Name: " << module->name << " ID: " << module->id
+                << " File: " << module->file << " Hash: " << module->hash
+                << std::endl;
     }
 
     for (const graph::edge *edge : this->FPGAHub_tree->edges) {
-      std::cout << "From: " << edge->from->name << " To: " << edge->to->file
+      std::cout << "From: " << edge->from->name << " To: " << edge->to->name
                 << std::endl;
     }
   }

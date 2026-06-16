@@ -4,10 +4,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
+#include <random>
 #include <sstream>
+#include <string>
 #include <sys/stat.h>
-
-#include <unistd.h> // for getuid
 
 std::string xdg_state_home_dir(std::string &app_name) {
   const char *xdg_state_home = std::getenv("XDG_STATE_HOME");
@@ -123,4 +124,29 @@ std::vector<std::string> parse_string_array(const std::string &input) {
   }
 
   return entries;
+}
+
+std::string generate_uuid_v4() {
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dis(0, 255);
+
+  std::stringstream ss;
+  for (int i = 0; i < 16; i++) {
+    int byte = dis(gen);
+
+    if (i == 6) {
+      byte = (byte & 0x0F) | 0x40;
+    } else if (i == 8) {
+      byte = (byte & 0x3F) | 0x80;
+    }
+
+    ss << std::hex << std::setw(2) << std::setfill('0') << byte;
+
+    if (i == 3 || i == 5 || i == 7 || i == 9) {
+      ss << "-";
+    }
+  }
+
+  return ss.str();
 }
