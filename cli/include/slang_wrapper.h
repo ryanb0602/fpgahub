@@ -45,6 +45,8 @@ public:
     root.visit(*(this->builder));
   }
 
+  graph *retrieve_graph() { return this->FPGAHub_tree; }
+
 private:
   // loads the current working directory into slang to be traversed
   int parse_working_directory();

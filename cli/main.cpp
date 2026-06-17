@@ -6,6 +6,7 @@
 #include "./include/routes.h"
 #include "./include/utils.h"
 
+#include "./include/graph_differencing_engine.h"
 #include "./include/slang_wrapper.h"
 
 #include <string>
@@ -37,6 +38,10 @@ int main(int argc, char **argv) {
   slang->callback([&]() {
     slang_wrapper slang_wrap;
     slang_wrap.load_to_FPGAHub_format();
+
+    graph_differencing_engine gde;
+    gde.load_current_graph(slang_wrap.retrieve_graph());
+    gde.test_function();
   });
 
   CLI11_PARSE(app, argc, argv);

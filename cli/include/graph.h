@@ -33,7 +33,8 @@ public:
                          .merk_hash = this->merk_hash,
                          .interface_port_hash = this->interface_port_hash,
                          .child_interfaces = this->child_interfaces};
-    };
+      return ret;
+    }
   };
 
   struct compatibility_tracker {
@@ -48,8 +49,6 @@ public:
 
   std::vector<module *> modules;
   std::vector<edge *> edges;
-
-  friend std::ostream &operator<<(std::ostream &os, const graph &target);
 };
 
 #endif
