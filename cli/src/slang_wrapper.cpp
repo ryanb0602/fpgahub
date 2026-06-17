@@ -146,12 +146,50 @@ void slang_wrapper::CanonicalHashBuilder::handle(
   this->visitDefault(node);
 }
 
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::GenerateBlockSymbol &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("GEN_BLOCK:" + capture_subtree(node));
+    return;
+  }
+  this->visitDefault(node);
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::GenerateBlockArraySymbol &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("GEN_ARRAY:" + capture_subtree(node));
+    return;
+  }
+  this->visitDefault(node);
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::SubroutineSymbol &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("FUNC_TASK:" + std::string(node.name) + "=" +
+                               capture_subtree(node));
+    return;
+  }
+  this->visitDefault(node);
+}
+
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::ast::TypeAliasType &node) {
+  if (!this->is_sub_visitor) {
+    this->components.push_back("TYPEDEF:" + std::string(node.name) + "=" +
+                               capture_subtree(node));
+    return;
+  }
+  this->visitDefault(node);
+}
+
 std::string slang_wrapper::CanonicalHashBuilder::get_canonical_string() {
   if (this->is_sub_visitor)
     return "";
 
   std::sort(this->components.begin(), this->components.end());
-  std::string final_aggregate = "";
+  std::string final_aggregate = this->canonical_string + "\n";
   for (const auto &comp : this->components) {
     final_aggregate += comp + "\n";
   }

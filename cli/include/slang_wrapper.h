@@ -101,6 +101,14 @@ private:
 
     void handle(const slang::ast::StringLiteral &node);
 
+    void handle(const slang::ast::GenerateBlockSymbol &node);
+
+    void handle(const slang::ast::GenerateBlockArraySymbol &node);
+
+    void handle(const slang::ast::SubroutineSymbol &node);
+
+    void handle(const slang::ast::TypeAliasType &node);
+
     std::string get_canonical_string();
     std::string get_raw_string();
 
