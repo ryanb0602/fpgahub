@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <map>
+#include <queue>
 #include <string>
 #include <variant>
 #include <vector>
@@ -23,8 +24,13 @@ public:
     generate_merkles();
 
     for (graph::module *m : this->current_graph->modules) {
-      std::cout << "Name: " << m->name << " Merk: " << m->merk_hash
-                << std::endl;
+      std::cout << "Name: " << m->name << " ID: " << m->id
+                << " Merk: " << m->merk_hash << std::endl;
+    }
+
+    for (graph::edge *e : this->current_graph->edges) {
+      std::cout << "From: " << e->from->name << " - " << e->from->id
+                << " To: " << e->to->name << " - " << e->to->id;
     }
   }
 
@@ -74,6 +80,49 @@ private:
     void generate_map();
     std::map<std::string, std::vector<graph::edge *>> edge_map;
     std::vector<graph::module *> roots;
+  };
+
+  class FPGAHub_gumtree {
+  public:
+    std::vector<moduleEditType> edit_script(graph *source_graph,
+                                            graph *destination_graph);
+
+  private:
+    // where we will store the graphs we are creating edit script for
+    graph *source_graph;
+    graph *destination_graph;
+
+    graph::module *sg_root;
+    graph::module *dg_root;
+
+    // precalc the graph heights
+    int precalc_heights(
+        graph::module *current,
+        std::map<std::string, std::vector<graph::edge *>> &traverse_map,
+        std::map<std::string, int> &height_map);
+
+    // this may be silly because it is also done in the merkle generator, but
+    // make an id indexed traversal map
+    std::map<std::string, std::vector<graph::edge *>> sg_edge_map;
+    std::map<std::string, std::vector<graph::edge *>> dg_edge_map;
+    void
+    generate_map(std::map<std::string, std::vector<graph::edge *>> &target_map,
+                 graph *target_graph);
+
+    // to allow precalcuation of the heights
+    std::map<std::string, int> sg_heights;
+    std::map<std::string, int> dg_heights;
+
+    // top down phase as described in falleri et al
+    void top_down_phase();
+
+    // needed for top down phase as described in falleri et al
+    int minHeight = 2;
+    std::priority_queue<std::pair<int, graph::module *>> l1;
+    std::priority_queue<std::pair<int, graph::module *>> l2;
+
+    // root finding function, helper, assumes non cyclical and connected
+    graph::module *find_root(graph *target);
   };
 };
 
