@@ -116,10 +116,12 @@ private:
     // top down phase as described in falleri et al
     void top_down_phase();
 
+    using pq_module = std::pair<int, graph::module *>;
+
     // needed for top down phase as described in falleri et al
     int minHeight = 2;
-    std::priority_queue<std::pair<int, graph::module *>> l1;
-    std::priority_queue<std::pair<int, graph::module *>> l2;
+    std::priority_queue<pq_module> l1;
+    std::priority_queue<pq_module> l2;
 
     // root finding function, helper, assumes non cyclical and connected
     graph::module *find_root(graph *target);

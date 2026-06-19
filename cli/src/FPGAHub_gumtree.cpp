@@ -23,7 +23,52 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->top_down_phase();
 }
 
-void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {}
+// this is top down phase as described in falleri et al, read gumtree for more
+// info
+void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
+
+  std::string sg_root_id = this->sg_root->id;
+  std::string dg_root_id = this->dg_root->id;
+
+  auto sg_root_pair =
+      std::make_pair(this->sg_heights[sg_root_id], this->sg_root);
+  auto dg_root_pair =
+      std::make_pair(this->dg_heights[dg_root_id], this->dg_root);
+
+  this->l1.push(sg_root_pair);
+  this->l2.push(dg_root_pair);
+
+  while (std::min(this->l1.top().first, this->l2.top().first) >
+         this->minHeight) {
+    int l1_peek_max = this->l1.top().first;
+    int l2_peek_max = this->l2.top().first;
+    if (l1_peek_max != l2_peek_max) {
+      if (l1_peek_max > l2_peek_max) {
+        graph::module *t = this->l1.top().second;
+        this->l1.pop();
+        std::vector<graph::edge *> children = this->sg_edge_map[t->id];
+        for (const graph::edge *e : children) {
+          graph::module *child = e->to;
+          pq_module child_pair =
+              std::make_pair(this->sg_heights[child->id], child);
+          this->l1.push(child_pair);
+        }
+      } else {
+        graph::module *t = this->l2.top().second;
+        this->l2.pop();
+        std::vector<graph::edge *> children = this->dg_edge_map[t->id];
+        for (const graph::edge *e : children) {
+          graph::module *child = e->to;
+          pq_module child_pair =
+              std::make_pair(this->dg_heights[child->id], child);
+
+          this->l2.push(child_pair);
+        }
+      }
+    } else {
+    }
+  }
+}
 
 graph::module *
 graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target) {
