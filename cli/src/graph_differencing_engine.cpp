@@ -25,6 +25,8 @@ graph_differencing_engine::merkle_generator::hasher(graph::module *m) {
   }
 
   // sort by the hash to give us a repeatable traversal order
+  // we sort by hash because if something has changed, the sort order may change
+  // but it doesnt matter because that is what the merkle hash represents anyway
   std::sort(children.begin(), children.end(),
             [](const graph::edge *one, const graph::edge *two) {
               return one->to->hash < two->to->hash;

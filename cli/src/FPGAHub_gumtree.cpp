@@ -21,8 +21,8 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->precalc_heights(this->sg_root, this->sg_edge_map, this->sg_heights);
   this->precalc_heights(this->dg_root, this->dg_edge_map, this->dg_heights);
 
-  this->iso_helper(this->sg_root, this->iso_map_sg, this->sg_edge_map);
-  this->iso_helper(this->dg_root, this->iso_map_dg, this->dg_edge_map);
+  this->count_hashes(this->source_graph, sg_merk_counts);
+  this->count_hashes(this->destination_graph, dg_merk_counts);
 
   this->top_down_phase();
 }
@@ -73,7 +73,21 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
 
       std::vector<graph::module *> h1 = this->gumtree_pop(this->l1);
       std::vector<graph::module *> h2 = this->gumtree_pop(this->l2);
+
+      std::unordered_set<graph::module *> matched_h1;
+      std::unordered_set<graph::module *> matched_h2;
+
       for (auto [t_1, t_2] : std::views::cartesian_product(h1, h2)) {
+
+        if (this->isomorphic(t_1, t_2)) {
+          if (this->is_uniquely_isomorphic(t_1, t_2)) {
+            this->map_subtree(t_1, t_2);
+          } else {
+            this->A.push_back(std::make_pair(t_1, t_2));
+          }
+          matched_h1.insert(t_1);
+          matched_h2.insert(t_2);
+        }
       }
     }
   }
@@ -173,14 +187,42 @@ bool graph_differencing_engine::FPGAHub_gumtree::isomorphic(graph::module *t1,
     return false;
   }
 
-  if (t1->merk_hash == t2->merk_hash) {
-    return true;
+  return t1->merk_hash == t2->merk_hash;
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::count_hashes(
+    graph *target_graph, std::map<std::string, int> &counts) {
+  for (graph::module *m : target_graph->modules) {
+    counts[m->merk_hash]++;
   }
 }
 
-std::string graph_differencing_engine::FPGAHub_gumtree::iso_helper(
-    graph::module *t_root, std::map<std::string, std::string> &map,
-    u_edge_map &edge_map) {
+bool graph_differencing_engine::FPGAHub_gumtree::is_uniquely_isomorphic(
+    graph::module *t1, graph::module *t2) {
+  if (t1->merk_hash != t2->merk_hash) {
+    return false;
+  }
 
-  std::vector<graph::edge *> children = edge_map[t_root->id];
+  bool unique_in_source = (this->sg_merk_counts[t1->merk_hash] == 1);
+  bool unique_in_dest = (this->dg_merk_counts[t2->merk_hash] == 1);
+
+  return unique_in_source && unique_in_dest;
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::map_subtree(
+    graph::module *t1, graph::module *t2) {
+  this->M[t1] = t2;
+
+  std::vector<graph::edge *> children1 = this->sg_edge_map[t1->id];
+  std::vector<graph::edge *> children2 = this->dg_edge_map[t2->id];
+
+  auto hash_sorter = [](const graph::edge *a, const graph::edge *b) {
+    return a->to->merk_hash < b->to->merk_hash;
+  };
+  std::sort(children1.begin(), children1.end(), hash_sorter);
+  std::sort(children2.begin(), children2.end(), hash_sorter);
+
+  for (size_t i = 0; i < children1.size(); ++i) {
+    this->map_subtree(children1[i]->to, children2[i]->to);
+  }
 }

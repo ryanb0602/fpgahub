@@ -6,6 +6,8 @@
 #include <queue>
 #include <ranges>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -92,6 +94,10 @@ private:
                                             graph *destination_graph);
 
   private:
+    using mapping = std::pair<graph::module *, graph::module *>;
+    std::unordered_map<graph::module *, graph::module *> M;
+    std::vector<mapping> A;
+
     // where we will store the graphs we are creating edit script for
     graph *source_graph;
     graph *destination_graph;
@@ -131,15 +137,18 @@ private:
     std::vector<graph::module *>
     gumtree_pop(std::priority_queue<pq_module> &target);
 
-    // function to check isomorphism, helper function and maps to allow for O(1)
-    // iso checks in runtime
+    // function to check isomorphism
     bool isomorphic(graph::module *t1, graph::module *t2);
-    std::string iso_helper(graph::module *t_root,
-                           std::map<std::string, std::string> &map,
-                           u_edge_map &edge_map);
 
-    std::map<std::string, std::string> iso_map_sg;
-    std::map<std::string, std::string> iso_map_dg;
+    // tool to achieve O(1) ambiguity checks in runtime my counting equivalent
+    // merkle hashes
+    void count_hashes(graph *target_graph, std::map<std::string, int> &counts);
+    std::map<std::string, int> sg_merk_counts;
+    std::map<std::string, int> dg_merk_counts;
+
+    bool is_uniquely_isomorphic(graph::module *t1, graph::module *t2);
+
+    void map_subtree(graph::module *t1, graph::module *t2);
   };
 };
 
