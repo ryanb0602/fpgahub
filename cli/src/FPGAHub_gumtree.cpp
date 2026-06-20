@@ -109,6 +109,29 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
       }
     }
   }
+  std::sort(this->A.begin(), this->A.end(),
+            [this](const mapping &pair_a, const mapping &pair_b) {
+              graph::module *parent_a1 = this->sg_parent_map[pair_a.first->id];
+              graph::module *parent_a2 = this->dg_parent_map[pair_a.second->id];
+              double score_a = this->dice(parent_a1, parent_a2);
+
+              graph::module *parent_b1 = this->sg_parent_map[pair_b.first->id];
+              graph::module *parent_b2 = this->dg_parent_map[pair_b.second->id];
+              double score_b = this->dice(parent_b1, parent_b2);
+
+              return score_a > score_b;
+            });
+
+  while (!this->A.empty()) {
+    auto [t1, t2] = this->A.front();
+    this->A.erase(this->A.begin());
+
+    this->map_subtree(t1, t2);
+
+    std::erase_if(this->A, [t1, t2](const mapping &pair) {
+      return pair.first == t1 || pair.second == t2;
+    });
+  }
 }
 
 graph::module *
