@@ -10,6 +10,6 @@ cmake --install build
 cd ..
 
 
-g++ main.cpp ./src/*.cpp -o fpgahub -std=c++20 -I./include -I./slang/install/include -L./slang/install/lib -lsvlang -lfmt -ltomlplusplus -pthread
+g++ main.cpp ./src/*.cpp -o fpgahub -std=c++23 -I./include -I./slang/install/include -L./slang/install/lib -lsvlang -lfmt -ltomlplusplus -pthread
 sudo mv ./fpgahub /usr/local/bin/fpgahub
 sudo chmod +x /usr/local/bin/fpgahub

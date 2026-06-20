@@ -1,5 +1,6 @@
 #include "../include/graph_differencing_engine.h"
 #include <algorithm>
+#include <queue>
 
 // this is an implementation of the algorithm outline by Falleri et al., gumtree
 // https://dl.acm.org/doi/10.1145/2642937.2642982
@@ -19,6 +20,9 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
 
   this->precalc_heights(this->sg_root, this->sg_edge_map, this->sg_heights);
   this->precalc_heights(this->dg_root, this->dg_edge_map, this->dg_heights);
+
+  this->iso_helper(this->sg_root, this->iso_map_sg, this->sg_edge_map);
+  this->iso_helper(this->dg_root, this->iso_map_dg, this->dg_edge_map);
 
   this->top_down_phase();
 }
@@ -66,6 +70,11 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
         }
       }
     } else {
+
+      std::vector<graph::module *> h1 = this->gumtree_pop(this->l1);
+      std::vector<graph::module *> h2 = this->gumtree_pop(this->l2);
+      for (auto [t_1, t_2] : std::views::cartesian_product(h1, h2)) {
+      }
     }
   }
 }
@@ -96,8 +105,7 @@ graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target) {
 }
 
 void graph_differencing_engine::FPGAHub_gumtree::generate_map(
-    std::map<std::string, std::vector<graph::edge *>> &target_map,
-    graph *target_graph) {
+    u_edge_map &target_map, graph *target_graph) {
 
   // populate the edge map
   for (graph::edge *e : target_graph->edges) {
@@ -106,8 +114,7 @@ void graph_differencing_engine::FPGAHub_gumtree::generate_map(
 }
 
 int graph_differencing_engine::FPGAHub_gumtree::precalc_heights(
-    graph::module *current,
-    std::map<std::string, std::vector<graph::edge *>> &traverse_map,
+    graph::module *current, u_edge_map &traverse_map,
     std::map<std::string, int> &height_map) {
 
   // make sure module is valid
@@ -134,4 +141,46 @@ int graph_differencing_engine::FPGAHub_gumtree::precalc_heights(
       *std::max_element(child_heights.begin(), child_heights.end());
   height_map[current->id] = max_child_height + 1;
   return max_child_height + 1;
+}
+
+std::vector<graph::module *>
+graph_differencing_engine::FPGAHub_gumtree::gumtree_pop(
+    std::priority_queue<pq_module> &target) {
+
+  std::vector<graph::module *> ret;
+
+  if (target.empty()) {
+    return ret;
+  }
+
+  int current_top_val = target.top().first;
+
+  while (!target.empty() && target.top().first == current_top_val) {
+    ret.push_back(target.top().second);
+    target.pop();
+  }
+
+  return ret;
+}
+
+bool graph_differencing_engine::FPGAHub_gumtree::isomorphic(graph::module *t1,
+                                                            graph::module *t2) {
+  if (t1 == nullptr && t2 == nullptr) {
+    return true;
+  }
+
+  if (t1 == nullptr || t2 == nullptr) {
+    return false;
+  }
+
+  if (t1->merk_hash == t2->merk_hash) {
+    return true;
+  }
+}
+
+std::string graph_differencing_engine::FPGAHub_gumtree::iso_helper(
+    graph::module *t_root, std::map<std::string, std::string> &map,
+    u_edge_map &edge_map) {
+
+  std::vector<graph::edge *> children = edge_map[t_root->id];
 }

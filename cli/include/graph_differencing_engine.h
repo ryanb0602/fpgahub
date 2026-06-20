@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <map>
 #include <queue>
+#include <ranges>
 #include <string>
 #include <variant>
 #include <vector>
@@ -64,6 +65,9 @@ private:
   using moduleEditType =
       std::variant<updateModule, addModule, deleteModule, moveModule>;
 
+  // mapping to simplify mouthful type
+  using u_edge_map = std::map<std::string, std::vector<graph::edge *>>;
+
   // helper class to explore graph recursively and create merkle hashes
   class merkle_generator {
   public:
@@ -78,7 +82,7 @@ private:
     // generate a map for easy edge loop (best way to explore graph with how we
     // store our info)
     void generate_map();
-    std::map<std::string, std::vector<graph::edge *>> edge_map;
+    u_edge_map edge_map;
     std::vector<graph::module *> roots;
   };
 
@@ -96,18 +100,14 @@ private:
     graph::module *dg_root;
 
     // precalc the graph heights
-    int precalc_heights(
-        graph::module *current,
-        std::map<std::string, std::vector<graph::edge *>> &traverse_map,
-        std::map<std::string, int> &height_map);
+    int precalc_heights(graph::module *current, u_edge_map &traverse_map,
+                        std::map<std::string, int> &height_map);
 
     // this may be silly because it is also done in the merkle generator, but
     // make an id indexed traversal map
-    std::map<std::string, std::vector<graph::edge *>> sg_edge_map;
-    std::map<std::string, std::vector<graph::edge *>> dg_edge_map;
-    void
-    generate_map(std::map<std::string, std::vector<graph::edge *>> &target_map,
-                 graph *target_graph);
+    u_edge_map sg_edge_map;
+    u_edge_map dg_edge_map;
+    void generate_map(u_edge_map &target_map, graph *target_graph);
 
     // to allow precalcuation of the heights
     std::map<std::string, int> sg_heights;
@@ -125,6 +125,21 @@ private:
 
     // root finding function, helper, assumes non cyclical and connected
     graph::module *find_root(graph *target);
+
+    // pop function as defined in gumtree by falleri et al
+    // takes from the priority queue the top value and everything equal to it
+    std::vector<graph::module *>
+    gumtree_pop(std::priority_queue<pq_module> &target);
+
+    // function to check isomorphism, helper function and maps to allow for O(1)
+    // iso checks in runtime
+    bool isomorphic(graph::module *t1, graph::module *t2);
+    std::string iso_helper(graph::module *t_root,
+                           std::map<std::string, std::string> &map,
+                           u_edge_map &edge_map);
+
+    std::map<std::string, std::string> iso_map_sg;
+    std::map<std::string, std::string> iso_map_dg;
   };
 };
 
