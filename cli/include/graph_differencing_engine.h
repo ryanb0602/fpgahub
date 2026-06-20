@@ -113,7 +113,12 @@ private:
     // make an id indexed traversal map
     u_edge_map sg_edge_map;
     u_edge_map dg_edge_map;
-    void generate_map(u_edge_map &target_map, graph *target_graph);
+
+    std::map<std::string, graph::module *> sg_parent_map;
+    std::map<std::string, graph::module *> dg_parent_map;
+
+    void generate_map(u_edge_map &target_map, graph *target_graph,
+                      std::map<std::string, graph::module *> &parent_map);
 
     // to allow precalcuation of the heights
     std::map<std::string, int> sg_heights;
@@ -149,6 +154,11 @@ private:
     bool is_uniquely_isomorphic(graph::module *t1, graph::module *t2);
 
     void map_subtree(graph::module *t1, graph::module *t2);
+
+    double dice(graph::module *t1, graph::module *t2);
+
+    void get_descendants(graph::module *current, u_edge_map &edge_map,
+                         std::unordered_set<graph::module *> &descendants);
   };
 };
 

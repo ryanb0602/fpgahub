@@ -15,8 +15,10 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->sg_root = find_root(this->source_graph);
   this->dg_root = find_root(this->destination_graph);
 
-  this->generate_map(this->sg_edge_map, this->source_graph);
-  this->generate_map(this->dg_edge_map, this->destination_graph);
+  this->generate_map(this->sg_edge_map, this->source_graph,
+                     this->sg_parent_map);
+  this->generate_map(this->dg_edge_map, this->destination_graph,
+                     this->dg_parent_map);
 
   this->precalc_heights(this->sg_root, this->sg_edge_map, this->sg_heights);
   this->precalc_heights(this->dg_root, this->dg_edge_map, this->dg_heights);
@@ -89,6 +91,22 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
           matched_h2.insert(t_2);
         }
       }
+
+      for (graph::module *t_1 : h1) {
+        if (matched_h1.find(t_1) == matched_h1.end()) {
+          for (graph::edge *e : this->sg_edge_map[t_1->id]) {
+            this->l1.push(std::make_pair(this->sg_heights[e->to->id], e->to));
+          }
+        }
+      }
+
+      for (graph::module *t_2 : h2) {
+        if (matched_h2.find(t_2) == matched_h2.end()) {
+          for (graph::edge *e : this->dg_edge_map[t_2->id]) {
+            this->l2.push(std::make_pair(this->dg_heights[e->to->id], e->to));
+          }
+        }
+      }
     }
   }
 }
@@ -119,11 +137,13 @@ graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target) {
 }
 
 void graph_differencing_engine::FPGAHub_gumtree::generate_map(
-    u_edge_map &target_map, graph *target_graph) {
+    u_edge_map &target_map, graph *target_graph,
+    std::map<std::string, graph::module *> &parent_map) {
 
   // populate the edge map
   for (graph::edge *e : target_graph->edges) {
     target_map[e->from->id].push_back(e);
+    parent_map[e->to->id] = e->from;
   }
 }
 
@@ -224,5 +244,55 @@ void graph_differencing_engine::FPGAHub_gumtree::map_subtree(
 
   for (size_t i = 0; i < children1.size(); ++i) {
     this->map_subtree(children1[i]->to, children2[i]->to);
+  }
+}
+
+double graph_differencing_engine::FPGAHub_gumtree::dice(graph::module *t1,
+                                                        graph::module *t2) {
+
+  if (t1 == nullptr || t2 == nullptr)
+    return 0.0;
+
+  if (t1->merk_hash == t2->merk_hash) {
+    return 1.0;
+  }
+
+  std::unordered_set<graph::module *> desc1;
+  this->get_descendants(t1, this->sg_edge_map, desc1);
+
+  std::unordered_set<graph::module *> desc2;
+  this->get_descendants(t2, this->dg_edge_map, desc2);
+
+  int denominator = desc1.size() + desc2.size();
+
+  if (denominator == 0) {
+    return 0.0;
+  }
+
+  int common_mappings = 0;
+  for (graph::module *d1 : desc1) {
+    if (this->M.find(d1) != this->M.end()) {
+      graph::module *mapped_to = this->M[d1];
+
+      if (desc2.find(mapped_to) != desc2.end()) {
+        common_mappings++;
+      }
+    }
+  }
+
+  return (2.0 * common_mappings) / static_cast<double>(denominator);
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::get_descendants(
+    graph::module *current, u_edge_map &edge_map,
+    std::unordered_set<graph::module *> &descendants) {
+
+  if (edge_map.find(current->id) == edge_map.end()) {
+    return;
+  }
+
+  for (graph::edge *e : edge_map[current->id]) {
+    descendants.insert(e->to);
+    this->get_descendants(e->to, edge_map, descendants);
   }
 }
