@@ -81,7 +81,7 @@ void slang_wrapper::GraphBuilder::handle(
   graph::module *new_module = new graph::module;
   new_module->id = generate_uuid_v4();
 
-  new_module->name = std::string(node.name);
+  new_module->name = std::string(node.getDefinition().name);
 
   // pull the file the current node is from, save it
   auto location = node.getDefinition().location;
