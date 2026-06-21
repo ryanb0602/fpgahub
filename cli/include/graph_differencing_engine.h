@@ -11,8 +11,6 @@
 #include <variant>
 #include <vector>
 
-#include "node/node.h"
-
 #ifndef GDE_H
 #define GDE_H
 
@@ -39,8 +37,9 @@ public:
     }
 
     FPGAHub_gumtree fpgahubgt;
-    fpgahubgt.edit_script(this->current_graph, this->current_graph, root_name);
-    this->current_graph->write_to_file(root_name);
+    graph old_graph;
+    old_graph.load_from_file();
+    fpgahubgt.edit_script(this->current_graph, &old_graph, root_name);
   }
 
 private:
@@ -138,7 +137,7 @@ private:
     using pq_module = std::pair<int, graph::module *>;
 
     // needed for top down phase as described in falleri et al
-    int minHeight = 2;
+    int minHeight = 0;
     std::priority_queue<pq_module> l1;
     std::priority_queue<pq_module> l2;
 
@@ -164,14 +163,15 @@ private:
     void map_subtree(graph::module *t1, graph::module *t2);
 
     double dice(graph::module *t1, graph::module *t2);
-    double minDice = .5;
+    double minDice = .25;
     int maxSize = 100;
 
     void get_descendants(graph::module *current, u_edge_map &edge_map,
                          std::unordered_set<graph::module *> &descendants);
 
     void post_order_dfs(graph::module *current,
-                        std::vector<graph::module *> &post_order);
+                        std::vector<graph::module *> &post_order,
+                        u_edge_map &edge_map);
 
     // helper to check if any children of a node exist in the M mapping
     bool has_matched_children(graph::module *t1);
@@ -181,6 +181,16 @@ private:
                    const std::unordered_set<graph::module *> &mapped_t2);
 
     int count_descendants(graph::module *target, u_edge_map &edge_map);
+
+    void opt(graph::module *t1, graph::module *t2,
+             std::unordered_set<graph::module *> &mapped_t2_nodes);
+
+    void extract_mappings(const std::vector<graph::module *> &post_order_t1,
+                          const std::vector<graph::module *> &post_order_t2,
+                          const std::vector<std::vector<double>> &dist_matrix,
+                          std::unordered_set<graph::module *> &mapped_t2_nodes);
+
+    double cost_rename(graph::module *m1, graph::module *m2);
   };
 };
 

@@ -32,19 +32,6 @@ int main(int argc, char **argv) {
   slang->add_option("module_name", root_module, "Name of the module to diff")
       ->required();
   slang->callback([&]() {
-    graph new_graph;
-    new_graph.load_from_file();
-
-    for (const graph::module *m : new_graph.modules) {
-      std::cout << m->name << " " << m->id << " " << m->merk_hash << std::endl;
-    }
-
-    for (const graph::edge *e : new_graph.edges) {
-      std::cout << e->from->name << " " << e->from->id << " -> " << e->to->name
-                << " " << e->to->id << std::endl;
-    }
-
-    /*
     slang_wrapper slang_wrap;
     slang_wrap.load_to_FPGAHub_format();
 
@@ -52,7 +39,6 @@ int main(int argc, char **argv) {
     gde.load_current_graph(slang_wrap.retrieve_graph());
 
     gde.test_function(root_module);
-        */
   });
 
   CLI11_PARSE(app, argc, argv);

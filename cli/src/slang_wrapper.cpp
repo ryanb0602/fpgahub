@@ -20,6 +20,10 @@ int slang_wrapper::parse_working_directory() {
       if (ext == ".v" || ext == ".sv" || ext == ".svh") {
         std::string file_path = entry.path().string();
 
+        if (file_path.find(".fpgahub") != std::string::npos) {
+          continue;
+        }
+
         // actually parse the syntax tree
         auto tree_result =
             slang::syntax::SyntaxTree::fromFile(file_path, this->sourceManager);
