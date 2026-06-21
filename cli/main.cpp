@@ -34,14 +34,20 @@ int main(int argc, char **argv) {
   auto status = app.add_subcommand("status", "Check file change status.");
   status->callback([&]() { status_route(tracker); });
 
+  std::string root_module;
+
   auto slang = app.add_subcommand("slang", "slang test");
+
+  slang->add_option("module_name", root_module, "Name of the module to diff")
+      ->required();
   slang->callback([&]() {
     slang_wrapper slang_wrap;
     slang_wrap.load_to_FPGAHub_format();
 
     graph_differencing_engine gde;
     gde.load_current_graph(slang_wrap.retrieve_graph());
-    gde.test_function();
+
+    gde.test_function(root_module);
   });
 
   CLI11_PARSE(app, argc, argv);

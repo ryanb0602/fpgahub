@@ -7,13 +7,13 @@
 
 std::vector<graph_differencing_engine::moduleEditType>
 graph_differencing_engine::FPGAHub_gumtree::edit_script(
-    graph *source_graph, graph *destination_graph) {
+    graph *source_graph, graph *destination_graph, std::string &root_name) {
 
   this->source_graph = source_graph;
   this->destination_graph = destination_graph;
 
-  this->sg_root = find_root(this->source_graph);
-  this->dg_root = find_root(this->destination_graph);
+  this->sg_root = find_root(this->source_graph, root_name);
+  this->dg_root = find_root(this->destination_graph, root_name);
 
   this->generate_map(this->sg_edge_map, this->source_graph,
                      this->sg_parent_map);
@@ -27,6 +27,9 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->count_hashes(this->destination_graph, dg_merk_counts);
 
   this->top_down_phase();
+
+  // placeholder
+  return std::vector<graph_differencing_engine::moduleEditType>();
 }
 
 // this is top down phase as described in falleri et al, read gumtree for more
@@ -44,8 +47,9 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
   this->l1.push(sg_root_pair);
   this->l2.push(dg_root_pair);
 
-  while (std::min(this->l1.top().first, this->l2.top().first) >
-         this->minHeight) {
+  while (!this->l1.empty() && !this->l2.empty() &&
+         std::min(this->l1.top().first, this->l2.top().first) >
+             this->minHeight) {
     int l1_peek_max = this->l1.top().first;
     int l2_peek_max = this->l2.top().first;
     if (l1_peek_max != l2_peek_max) {
@@ -135,28 +139,21 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
 }
 
 graph::module *
-graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target) {
+graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target,
+                                                      std::string &root_name) {
 
   // make sure not dealing with empty graph
   if (target->modules.size() < 1) {
     return nullptr;
   }
 
-  // start at random module, here we will use the first module in the graph
-  graph::module *m = target->modules[0];
-
-  // traverse backwards until you cannot anymore
-  while (1) {
-
-    auto it =
-        std::find_if(target->edges.begin(), target->edges.end(),
-                     [m](const graph::edge *e) { return e->to->id == m->id; });
-
-    if (it == target->edges.end()) {
+  for (graph::module *m : target->modules) {
+    if (m->name == root_name) {
       return m;
     }
-    m = (*it)->from;
   }
+  std::cout << "Failed to find root: " << root_name << std::endl;
+  return nullptr;
 }
 
 void graph_differencing_engine::FPGAHub_gumtree::generate_map(

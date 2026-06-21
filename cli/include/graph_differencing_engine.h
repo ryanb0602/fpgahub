@@ -23,7 +23,7 @@ public:
     this->current_graph = current_graph;
   }
 
-  void test_function() {
+  void test_function(std::string &root_name) {
     generate_merkles();
 
     for (graph::module *m : this->current_graph->modules) {
@@ -35,6 +35,9 @@ public:
       std::cout << "From: " << e->from->name << " - " << e->from->id
                 << " To: " << e->to->name << " - " << e->to->id;
     }
+
+    FPGAHub_gumtree fpgahubgt;
+    fpgahubgt.edit_script(this->current_graph, this->current_graph, root_name);
   }
 
 private:
@@ -91,7 +94,8 @@ private:
   class FPGAHub_gumtree {
   public:
     std::vector<moduleEditType> edit_script(graph *source_graph,
-                                            graph *destination_graph);
+                                            graph *destination_graph,
+                                            std::string &root_name);
 
   private:
     using mapping = std::pair<graph::module *, graph::module *>;
@@ -135,7 +139,7 @@ private:
     std::priority_queue<pq_module> l2;
 
     // root finding function, helper, assumes non cyclical and connected
-    graph::module *find_root(graph *target);
+    graph::module *find_root(graph *target, std::string &root_name);
 
     // pop function as defined in gumtree by falleri et al
     // takes from the priority queue the top value and everything equal to it
