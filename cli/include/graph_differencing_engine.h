@@ -38,6 +38,7 @@ public:
 
     FPGAHub_gumtree fpgahubgt;
     fpgahubgt.edit_script(this->current_graph, this->current_graph, root_name);
+    this->current_graph->write_to_file(root_name);
   }
 
 private:
@@ -161,9 +162,23 @@ private:
     void map_subtree(graph::module *t1, graph::module *t2);
 
     double dice(graph::module *t1, graph::module *t2);
+    double minDice = .5;
+    int maxSize = 100;
 
     void get_descendants(graph::module *current, u_edge_map &edge_map,
                          std::unordered_set<graph::module *> &descendants);
+
+    void post_order_dfs(graph::module *current,
+                        std::vector<graph::module *> &post_order);
+
+    // helper to check if any children of a node exist in the M mapping
+    bool has_matched_children(graph::module *t1);
+
+    graph::module *
+    find_candidate(graph::module *t1,
+                   const std::unordered_set<graph::module *> &mapped_t2);
+
+    int count_descendants(graph::module *target, u_edge_map &edge_map);
   };
 };
 

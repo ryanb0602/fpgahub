@@ -1,12 +1,29 @@
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <map>
+#include <set>
+#include <sstream>
 #include <string>
 #include <vector>
+
+#include "../include/utils.h"
 
 #ifndef GRAPH_H
 #define GRAPH_H
 
+inline std::string cache_dir = ".fpgahub";
+
+bool update_head(const std::string &commit_hash);
+
+std::string get_head();
+
 class graph {
 public:
+  void load_from_file();
+  void write_to_file(std::string &root_name);
+
   struct compatibility_tracker;
 
   // module body struct, a helper struct to make things in the graph

@@ -138,6 +138,42 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
   }
 }
 
+void graph_differencing_engine::FPGAHub_gumtree::bottom_up_phase() {
+
+  std::vector<graph::module *> t1_post_order;
+  this->post_order_dfs(this->sg_root, t1_post_order);
+
+  std::unordered_set<graph::module *> mapped_t2_nodes;
+  for (const auto &[source_node, dest_node] : this->M) {
+    mapped_t2_nodes.insert(dest_node);
+  }
+
+  for (graph::module *t1 : t1_post_order) {
+
+    bool t1_is_unmatched = (this->M.find(t1) == this->M.end());
+    bool t1_has_matched_children = this->has_matched_children(t1);
+
+    if (t1_is_unmatched && t1_has_matched_children) {
+
+      graph::module *t2 = this->find_candidate(t1, mapped_t2_nodes);
+
+      if (t2 != nullptr && this->dice(t1, t2) > this->minDice) {
+        this->M[t1] = t2;
+
+        this->M[t1] = t2;
+        mapped_t2_nodes.insert(t2);
+
+        int size_t1 = this->count_descendants(t1, this->sg_edge_map);
+        int size_t2 = this->count_descendants(t2, this->dg_edge_map);
+
+        if (std::max(size_t1, size_t2) < this->maxSize) {
+          // this->opt(t1, t2);
+        }
+      }
+    }
+  }
+}
+
 graph::module *
 graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target,
                                                       std::string &root_name) {
@@ -315,4 +351,86 @@ void graph_differencing_engine::FPGAHub_gumtree::get_descendants(
     descendants.insert(e->to);
     this->get_descendants(e->to, edge_map, descendants);
   }
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::post_order_dfs(
+    graph::module *current, std::vector<graph::module *> &post_order) {
+
+  if (current == nullptr)
+    return;
+
+  if (this->sg_edge_map.find(current->id) != this->sg_edge_map.end()) {
+    for (graph::edge *e : this->sg_edge_map[current->id]) {
+      post_order_dfs(e->to, post_order);
+    }
+  }
+
+  post_order.push_back(current);
+}
+
+bool graph_differencing_engine::FPGAHub_gumtree::has_matched_children(
+    graph::module *t1) {
+  if (this->sg_edge_map.find(t1->id) == this->sg_edge_map.end()) {
+    return false;
+  }
+
+  for (graph::edge *e : this->sg_edge_map[t1->id]) {
+    graph::module *child = e->to;
+
+    if (this->M.find(child) != this->M.end()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+graph::module *graph_differencing_engine::FPGAHub_gumtree::find_candidate(
+    graph::module *t1, const std::unordered_set<graph::module *> &mapped_t2) {
+
+  graph::module *best_candidate = nullptr;
+  double max_dice_score = -1.0;
+
+  for (graph::module *t2 : this->destination_graph->modules) {
+
+    if (mapped_t2.find(t2) != mapped_t2.end()) {
+      continue;
+    }
+
+    if (t1->name != t2->name) {
+      continue;
+    }
+
+    double current_score = this->dice(t1, t2);
+
+    if (current_score > 0.0 && current_score > max_dice_score) {
+      max_dice_score = current_score;
+      best_candidate = t2;
+    }
+  }
+
+  return best_candidate;
+}
+
+int graph_differencing_engine::FPGAHub_gumtree::count_descendants(
+    graph::module *target, u_edge_map &edge_map) {
+
+  // Base case: null pointer
+  if (target == nullptr) {
+    return 0;
+  }
+
+  int count = 1; // Count the current node itself
+
+  // If the node has no children in the map, it's a leaf node, return 1.
+  if (edge_map.find(target->id) == edge_map.end()) {
+    return count;
+  }
+
+  // Recursive case: add up the sizes of all children's subtrees
+  for (graph::edge *e : edge_map[target->id]) {
+    count += this->count_descendants(e->to, edge_map);
+  }
+
+  return count;
 }
