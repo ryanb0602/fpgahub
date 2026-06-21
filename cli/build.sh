@@ -9,7 +9,17 @@ cmake --install build
 
 cd ..
 
+cd tree-similarity
 
-g++ main.cpp ./src/*.cpp -o fpgahub -std=c++23 -I./include -I./slang/install/include -L./slang/install/lib -lsvlang -lfmt -ltomlplusplus -pthread
+if [ ! -d "./build" ]; then
+  mkdir "./build"
+fi
+cd build
+cmake ..
+make
+
+cd ../..
+
+g++ main.cpp ./src/*.cpp -o fpgahub -std=c++23 -I./include -I./slang/install/include -I./tree-similarity/src -L./slang/install/lib -lsvlang -lfmt -ltomlplusplus -pthread
 sudo mv ./fpgahub /usr/local/bin/fpgahub
 sudo chmod +x /usr/local/bin/fpgahub

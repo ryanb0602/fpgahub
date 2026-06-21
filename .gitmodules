@@ -10,3 +10,6 @@
 [submodule "testproj1/picorv32"]
 	path = testprojs/testproj1/picorv32
 	url = https://github.com/YosysHQ/picorv32.git
+[submodule "cli/tree-similarity"]
+	path = cli/tree-similarity
+	url = https://github.com/DatabaseGroup/tree-similarity.git

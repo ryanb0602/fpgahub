@@ -11,6 +11,8 @@
 #include <variant>
 #include <vector>
 
+#include "node/node.h"
+
 #ifndef GDE_H
 #define GDE_H
 
