@@ -8,5 +8,5 @@
 	path = testproj/picorv32
 	url = https://github.com/YosysHQ/picorv32.git
 [submodule "testproj1/picorv32"]
-	path = testproj1/picorv32
+	path = testprojs/testproj1/picorv32
 	url = https://github.com/YosysHQ/picorv32.git

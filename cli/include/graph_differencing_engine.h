@@ -130,6 +130,7 @@ private:
 
     // top down phase as described in falleri et al
     void top_down_phase();
+    void bottom_up_phase();
 
     using pq_module = std::pair<int, graph::module *>;
 
