@@ -2,6 +2,7 @@
 #include "./sha256.h"
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 #include <queue>
 #include <ranges>
@@ -39,7 +40,7 @@ public:
     FPGAHub_gumtree fpgahubgt;
     graph old_graph;
     old_graph.load_from_file();
-    fpgahubgt.edit_script(this->current_graph, &old_graph, root_name);
+    fpgahubgt.edit_script(&old_graph, this->current_graph, root_name);
   }
 
 private:
@@ -57,7 +58,7 @@ private:
 
   struct addModule {
     graph::module new_module;
-    graph::edge new_edge;
+    graph::module parent;
   };
 
   struct deleteModule {
@@ -191,6 +192,19 @@ private:
                           std::unordered_set<graph::module *> &mapped_t2_nodes);
 
     double cost_rename(graph::module *m1, graph::module *m2);
+
+    // here down is action generator functions
+    // all recover actions from the mapping
+    std::vector<moduleEditType> actionGenerator();
+
+    std::vector<graph::module *> sg_unmapped;
+    std::vector<graph::module *> dg_unmapped;
+    void populate_unmapped();
+
+    std::vector<updateModule> extractEditActions();
+    std::vector<moveModule> extractMoveActions();
+    std::vector<addModule> extractAddActions();
+    std::vector<deleteModule> extractDeleteActions();
   };
 };
 

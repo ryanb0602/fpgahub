@@ -29,6 +29,8 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->top_down_phase();
   this->bottom_up_phase();
 
+  this->actionGenerator();
+
   // placeholder
   return std::vector<graph_differencing_engine::moduleEditType>();
 }
