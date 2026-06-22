@@ -2,6 +2,11 @@
 #include <algorithm>
 #include <queue>
 
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
 // this is an implementation of the algorithm outline by Falleri et al., gumtree
 // https://dl.acm.org/doi/10.1145/2642937.2642982
 
@@ -29,10 +34,31 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->top_down_phase();
   this->bottom_up_phase();
 
-  this->actionGenerator();
+  std::vector<moduleEditType> edit_script = this->actionGenerator();
 
-  // placeholder
-  return std::vector<graph_differencing_engine::moduleEditType>();
+  std::cout << "\n--- Generated Edit Script ---\n";
+  for (const auto &edit : edit_script) {
+    std::visit(overloaded{[&](const updateModule &e) {
+                            std::cout << "UPDATE: " << e.name << "\n";
+                          },
+                          [&](const addModule &e) {
+                            std::cout << "ADD: " << e.new_module.name
+                                      << " to parent " << e.parent.name << "\n";
+                          },
+                          [&](const disconnectModule &e) {
+                            std::cout << "Disconnect: " << e.module_rem.name
+                                      << "\n";
+                          },
+                          [&](const moveModule &e) {
+                            std::cout << "MOVE: " << e.module_move.name
+                                      << " to new parent " << e.parent.name
+                                      << "\n";
+                          }},
+               edit);
+  }
+  std::cout << "-----------------------------\n";
+
+  return edit_script;
 }
 
 // this is top down phase as described in falleri et al, read gumtree for more

@@ -1,10 +1,5 @@
 #include "../include/graph_differencing_engine.h"
 
-template <class... Ts> struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 std::vector<graph_differencing_engine::moduleEditType>
 graph_differencing_engine::FPGAHub_gumtree::actionGenerator() {
 
@@ -17,32 +12,11 @@ graph_differencing_engine::FPGAHub_gumtree::actionGenerator() {
   possible_edits.append_range(this->extractMoveActions());
   this->populate_unmapped();
   possible_edits.append_range(this->extractAddActions());
-  possible_edits.append_range(this->extractDeleteActions());
+  possible_edits.append_range(this->extractDisconnectActions());
 
-  std::cout << "\n--- Generated Edit Script ---\n";
-  for (const auto &edit : possible_edits) {
-    std::visit(overloaded{[&](const updateModule &e) {
-                            std::cout << "UPDATE: " << e.name << "\n";
-                          },
-                          [&](const addModule &e) {
-                            std::cout << "ADD: " << e.new_module.name
-                                      << " to parent " << e.parent.name << "\n";
-                          },
-                          [&](const deleteModule &e) {
-                            std::cout << "DELETE: " << e.module_rem.name
-                                      << "\n";
-                          },
-                          [&](const moveModule &e) {
-                            std::cout << "MOVE: " << e.module_move.name
-                                      << " to new parent " << e.new_parent.name
-                                      << "\n";
-                          }},
-               edit);
-  }
-  std::cout << "-----------------------------\n";
+  this->sort_edit_script(possible_edits);
 
-  // placeholder
-  return std::vector<graph_differencing_engine::moduleEditType>();
+  return possible_edits;
 }
 
 std::vector<graph_differencing_engine::updateModule>
@@ -116,16 +90,138 @@ graph_differencing_engine::FPGAHub_gumtree::extractAddActions() {
   return adds;
 }
 
-std::vector<graph_differencing_engine::deleteModule>
-graph_differencing_engine::FPGAHub_gumtree::extractDeleteActions() {
+std::vector<graph_differencing_engine::disconnectModule>
+graph_differencing_engine::FPGAHub_gumtree::extractDisconnectActions() {
 
-  std::vector<deleteModule> deletes;
+  std::vector<disconnectModule> disconnects;
 
   for (graph::module *m : this->sg_unmapped) {
 
-    deleteModule deleted = {*m};
-    deletes.push_back(deleted);
+    disconnectModule disconnect = {*m};
+    disconnects.push_back(disconnect);
   }
 
-  return deletes;
+  this->coalesceDisconnects(disconnects);
+
+  return disconnects;
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::coalesceDisconnects(
+    std::vector<disconnectModule> &disconnects) {
+
+  std::unordered_set<std::string> removed_node_ids;
+  for (const auto &d : disconnects) {
+    removed_node_ids.insert(d.module_rem.id);
+  }
+
+  disconnects.erase(
+      std::remove_if(disconnects.begin(), disconnects.end(),
+                     [&removed_node_ids](const disconnectModule &d) {
+                       return removed_node_ids.find(d.parent.id) !=
+                              removed_node_ids.end();
+                     }),
+      disconnects.end());
+}
+
+void graph_differencing_engine::FPGAHub_gumtree::sort_edit_script(
+    std::vector<moduleEditType> &edit_script) {
+
+  // filter by type
+
+  auto disconnects = edit_script |
+                     std::views::filter([](const moduleEditType &met) {
+                       return std::holds_alternative<disconnectModule>(met);
+                     }) |
+                     std::ranges::to<std::vector>();
+
+  auto updates = edit_script |
+                 std::views::filter([](const moduleEditType &met) {
+                   return std::holds_alternative<updateModule>(met);
+                 }) |
+                 std::ranges::to<std::vector>();
+
+  auto adds_moves = edit_script |
+                    std::views::filter([](const moduleEditType &met) {
+                      return std::holds_alternative<addModule>(met) ||
+                             std::holds_alternative<moveModule>(met);
+                    }) |
+                    std::ranges::to<std::vector>();
+
+  std::vector<moduleEditType> sorted_script;
+  sorted_script.append_range(disconnects);
+
+  // lookup map, m_id, met
+  std::unordered_map<std::string, moduleEditType> lookup_map;
+
+  // populate the lookup map
+  for (moduleEditType &met : adds_moves) {
+    if (auto *ptr = std::get_if<addModule>(&met)) {
+      lookup_map[ptr->new_module.id] = met;
+    } else if (auto *ptr = std::get_if<moveModule>(&met)) {
+      lookup_map[ptr->module_move.id] = met;
+    }
+  }
+
+  std::unordered_set<std::string> added_to_processed;
+  std::stack<moduleEditType> process_stack;
+
+  while (adds_moves.size() > 0 || process_stack.size() > 0) {
+    if (process_stack.empty()) {
+      moduleEditType back_item = adds_moves.back();
+      adds_moves.pop_back();
+
+      std::string my_id;
+      if (auto *ptr = std::get_if<addModule>(&back_item)) {
+        my_id = ptr->new_module.id;
+      } else if (auto *ptr = std::get_if<moveModule>(&back_item)) {
+        my_id = ptr->module_move.id;
+      }
+
+      // if this was already processed by being found as a dependency, ignore
+      // this time
+      if (added_to_processed.contains(my_id)) {
+        continue;
+      }
+
+      process_stack.push(back_item);
+    } else {
+      // load from process stack
+      moduleEditType stack_top = process_stack.top();
+
+      std::string dependency_id;
+      std::string my_id;
+      // populate what the dependency id and current id are
+      if (auto *ptr = std::get_if<addModule>(&stack_top)) {
+        dependency_id = ptr->parent.id;
+        my_id = ptr->new_module.id;
+      } else if (auto *ptr = std::get_if<moveModule>(&stack_top)) {
+        dependency_id = ptr->parent.id;
+        my_id = ptr->module_move.id;
+      }
+
+      // if the dependency is already processed, it is okay to process this
+      if (added_to_processed.contains(dependency_id)) {
+        sorted_script.push_back(stack_top);
+        added_to_processed.insert(my_id);
+        process_stack.pop();
+        continue;
+      }
+      // if we found a dependency, just add this to the stack and keep moving
+      if (lookup_map.contains(dependency_id)) {
+        process_stack.push(lookup_map[dependency_id]);
+        continue;
+      } else {
+        // if this has no dependencies, it is the top of a chain and it is okay
+        // to keep process
+        // this will trigger sort of waterfall, rest of chain will be processed
+        // after
+        sorted_script.push_back(stack_top);
+        added_to_processed.insert(my_id);
+        process_stack.pop();
+      }
+    }
+  }
+
+  sorted_script.append_range(updates);
+  edit_script = sorted_script;
 }

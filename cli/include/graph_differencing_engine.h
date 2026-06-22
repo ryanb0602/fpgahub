@@ -6,6 +6,7 @@
 #include <map>
 #include <queue>
 #include <ranges>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -61,17 +62,18 @@ private:
     graph::module parent;
   };
 
-  struct deleteModule {
+  struct disconnectModule {
     graph::module module_rem;
+    graph::module parent;
   };
 
   struct moveModule {
     graph::module module_move;
-    graph::module new_parent;
+    graph::module parent;
   };
 
   using moduleEditType =
-      std::variant<updateModule, addModule, deleteModule, moveModule>;
+      std::variant<updateModule, addModule, disconnectModule, moveModule>;
 
   // mapping to simplify mouthful type
   using u_edge_map = std::map<std::string, std::vector<graph::edge *>>;
@@ -204,7 +206,11 @@ private:
     std::vector<updateModule> extractEditActions();
     std::vector<moveModule> extractMoveActions();
     std::vector<addModule> extractAddActions();
-    std::vector<deleteModule> extractDeleteActions();
+    std::vector<disconnectModule> extractDisconnectActions();
+
+    void coalesceDisconnects(std::vector<disconnectModule> &disconnects);
+
+    void sort_edit_script(std::vector<moduleEditType> &edit_script);
   };
 };
 

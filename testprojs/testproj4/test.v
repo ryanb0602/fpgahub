@@ -8,9 +8,16 @@ module math_unit(input a, input b, output c);
     assign c = a + b + 1; // <--- Changed! 
 endmodule
 
+//test for addition on an addition
+module test_test_test(input a, input b);
+    assign a = !b;
+endmodule
+
 // 3. THE INSERTION (Completely new module)
 module shiny_new_unit(input j, output k);
-    assign k = ~j;
+    wire z;
+    test_test_test u1(.a(z), .b(j));
+    assign k = ~z;
 endmodule
 
 // ROOT MODULE (Hash changes because its children changed)
