@@ -2,11 +2,6 @@
 #include <algorithm>
 #include <queue>
 
-template <class... Ts> struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 // this is an implementation of the algorithm outline by Falleri et al., gumtree
 // https://dl.acm.org/doi/10.1145/2642937.2642982
 
@@ -35,28 +30,6 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
   this->bottom_up_phase();
 
   std::vector<moduleEditType> edit_script = this->actionGenerator();
-
-  std::cout << "\n--- Generated Edit Script ---\n";
-  for (const auto &edit : edit_script) {
-    std::visit(overloaded{[&](const updateModule &e) {
-                            std::cout << "UPDATE: " << e.name << "\n";
-                          },
-                          [&](const addModule &e) {
-                            std::cout << "ADD: " << e.new_module.name
-                                      << " to parent " << e.parent.name << "\n";
-                          },
-                          [&](const disconnectModule &e) {
-                            std::cout << "Disconnect: " << e.module_rem.name
-                                      << "\n";
-                          },
-                          [&](const moveModule &e) {
-                            std::cout << "MOVE: " << e.module_move.name
-                                      << " to new parent " << e.parent.name
-                                      << "\n";
-                          }},
-               edit);
-  }
-  std::cout << "-----------------------------\n";
 
   return edit_script;
 }
@@ -141,10 +114,6 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
         }
       }
     }
-
-    for (const auto &[key, value] : this->M) {
-      std::cout << key->name << " <- " << value->name << std::endl;
-    }
   }
   std::sort(this->A.begin(), this->A.end(),
             [this](const mapping &pair_a, const mapping &pair_b) {
@@ -206,10 +175,6 @@ void graph_differencing_engine::FPGAHub_gumtree::bottom_up_phase() {
         }
       }
     }
-  }
-
-  for (const auto &[key, value] : this->M) {
-    std::cout << key->name << " <- " << value->name << std::endl;
   }
 }
 

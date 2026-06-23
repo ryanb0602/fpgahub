@@ -2,7 +2,10 @@
 #include "../include/auth.h"
 #include "../include/cfg.h"
 #include "../include/colors.h"
+#include "../include/graph_differencing_engine.h"
+#include "../include/slang_wrapper.h"
 #include "../include/utils.h"
+
 #include <iostream>
 
 void registerUser_route(Authenticator &auth) {
@@ -57,30 +60,12 @@ void logoutUser_route(Authenticator &auth) {
   auth.storeAuthToken(empty_token);
 }
 
-void status_route(FileTracker &fileTracker) {
-  std::vector<FileTracker::changeInfo> changes = fileTracker.file_status();
+void print_edit_script(std::string root_module) {
+  slang_wrapper slang_wrap;
+  slang_wrap.load_to_FPGAHub_format();
 
-  if (changes.empty()) {
-    std::cout << GREEN << "No changes detected." << RESET << std::endl;
-    return;
-  }
+  graph_differencing_engine gde;
+  gde.load_current_graph(slang_wrap.retrieve_graph());
 
-  for (const auto &change : changes) {
-    if (change.change_type == "new") {
-      std::cout << GREEN << "Added: " << change.filename << RESET << std::endl;
-    } else if (change.change_type == "modified") {
-      std::cout << YELLOW << "Modified: " << change.filename << RESET
-                << std::endl;
-    } else if (change.change_type == "deleted") {
-      std::cout << RED << "Deleted: " << change.filename << RESET << std::endl;
-    }
-  }
-}
-
-void commit_route(FileTracker &fileTracker, Authenticator &auth,
-                  ModuleTreeBuilder &moduleTreeBuilder) {
-
-  // module tracking
-
-  fileTracker.commit(auth, moduleTreeBuilder);
+  gde.print_edit_script(root_module);
 }

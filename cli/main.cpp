@@ -27,19 +27,12 @@ int main(int argc, char **argv) {
 
   std::string root_module;
 
-  auto slang = app.add_subcommand("slang", "slang test");
+  auto status =
+      app.add_subcommand("status", "Get edit script of uncommitted changes");
 
-  slang->add_option("module_name", root_module, "Name of the module to diff")
+  status->add_option("module_name", root_module, "Name of the module to diff")
       ->required();
-  slang->callback([&]() {
-    slang_wrapper slang_wrap;
-    slang_wrap.load_to_FPGAHub_format();
-
-    graph_differencing_engine gde;
-    gde.load_current_graph(slang_wrap.retrieve_graph());
-
-    gde.test_function(root_module);
-  });
+  status->callback([&]() { print_edit_script(root_module); });
 
   CLI11_PARSE(app, argc, argv);
 

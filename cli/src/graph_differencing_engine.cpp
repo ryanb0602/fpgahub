@@ -1,5 +1,10 @@
 #include "../include/graph_differencing_engine.h"
 
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
 void graph_differencing_engine::generate_merkles() {
   merkle_generator m_gen(this->current_graph);
   m_gen.run_hasher();
@@ -76,4 +81,36 @@ void graph_differencing_engine::merkle_generator::generate_map() {
   for (auto const &[id, m] : root_nodes) {
     this->roots.push_back(m);
   }
+}
+
+void graph_differencing_engine::print_edit_script(std::string &root_name) {
+  generate_merkles();
+
+  FPGAHub_gumtree fpgahubgt;
+  graph old_graph;
+  old_graph.load_from_file();
+  std::vector<moduleEditType> edit_script =
+      fpgahubgt.edit_script(&old_graph, this->current_graph, root_name);
+
+  std::cout << "\n--- Edit Script ---\n";
+  for (const auto &edit : edit_script) {
+    std::visit(
+        overloaded{[&](const updateModule &e) {
+                     std::cout << "UPDATE: " << e.name << "\n";
+                   },
+                   [&](const addModule &e) {
+                     std::cout << "ADD: " << e.new_module.name
+                               << " as child of " << e.parent.name << "\n";
+                   },
+                   [&](const disconnectModule &e) {
+                     std::cout << "DISCONNECT: " << e.module_rem.name << "\n";
+                   },
+                   [&](const moveModule &e) {
+                     std::cout << "MOVE: " << e.module_move.name
+                               << " to new parent " << e.parent.name << "\n";
+                   }},
+        edit);
+  }
+  std::cout << "-----------------------------\n";
+  return;
 }

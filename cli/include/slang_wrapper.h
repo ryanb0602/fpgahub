@@ -86,7 +86,29 @@ private:
     // we do not want to visit or include modules, this is to create a
     // structural hash for just the module of interest. this will ensure
     // modules (instances in slang) are skipped
-    void handle(const slang::ast::InstanceSymbol &node) { return; }
+    void handle(const slang::ast::InstanceSymbol &node) {
+      std::string def_name = std::string(node.getDefinition().name);
+      std::string inst_name = std::string(node.name);
+
+      // Create a unique string representing this specific instantiation
+      std::string signature = "INSTANCE_DEF:" + def_name + ":NAME:" + inst_name;
+
+      // 2. Append to the hash components
+      if (!this->is_sub_visitor) {
+        this->components.push_back(signature);
+      } else {
+        this->canonical_string += signature + ";";
+      }
+
+      // 3. STOP TRAVERSAL.
+      // Do NOT call capture_subtree(node);
+      // Do NOT call this->visitDefault(node);
+      //
+      // By returning here, we record that the instance exists in the parent,
+      // but we prevent the visitor from bleeding into the child module's
+      // internal logic.
+      return;
+    }
 
     // exploration functions to build the string
 

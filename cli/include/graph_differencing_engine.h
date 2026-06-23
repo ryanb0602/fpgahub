@@ -25,24 +25,7 @@ public:
     this->current_graph = current_graph;
   }
 
-  void test_function(std::string &root_name) {
-    generate_merkles();
-
-    for (graph::module *m : this->current_graph->modules) {
-      std::cout << "Name: " << m->name << " ID: " << m->id
-                << " Merk: " << m->merk_hash << std::endl;
-    }
-
-    for (graph::edge *e : this->current_graph->edges) {
-      std::cout << "From: " << e->from->name << " - " << e->from->id
-                << " To: " << e->to->name << " - " << e->to->id;
-    }
-
-    FPGAHub_gumtree fpgahubgt;
-    graph old_graph;
-    old_graph.load_from_file();
-    fpgahubgt.edit_script(&old_graph, this->current_graph, root_name);
-  }
+  void print_edit_script(std::string &root_name);
 
 private:
   void generate_merkles();
