@@ -38,6 +38,14 @@ graph_differencing_engine::FPGAHub_gumtree::edit_script(
 // info
 void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
 
+  if (this->sg_root == nullptr) {
+    // if the sg_root is null, then we have not found a root. if a root has not
+    // been found, the most likely outcome is there is no graph. we can return
+    // because we know we will not find any mappings
+
+    return;
+  }
+
   std::string sg_root_id = this->sg_root->id;
   std::string dg_root_id = this->dg_root->id;
 
@@ -141,6 +149,12 @@ void graph_differencing_engine::FPGAHub_gumtree::top_down_phase() {
 }
 
 void graph_differencing_engine::FPGAHub_gumtree::bottom_up_phase() {
+
+  if (this->sg_root == nullptr) {
+    // if the source graph is null we will not and should not find any mappings,
+    // so it is okay to return
+    return;
+  }
 
   std::vector<graph::module *> t1_post_order;
   this->post_order_dfs(this->sg_root, t1_post_order, this->sg_edge_map);

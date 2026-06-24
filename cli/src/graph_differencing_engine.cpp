@@ -99,8 +99,15 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
                      std::cout << "UPDATE: " << e.name << "\n";
                    },
                    [&](const addModule &e) {
-                     std::cout << "ADD: " << e.new_module.name
-                               << " as child of " << e.parent.name << "\n";
+                     if (e.parent.name == "") {
+
+                       std::cout << "ADD: " << e.new_module.name
+                                 << " as root\n";
+                     } else {
+
+                       std::cout << "ADD: " << e.new_module.name
+                                 << " as child of " << e.parent.name << "\n";
+                     }
                    },
                    [&](const disconnectModule &e) {
                      std::cout << "DISCONNECT: " << e.module_rem.name << "\n";
