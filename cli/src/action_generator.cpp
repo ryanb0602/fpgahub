@@ -83,6 +83,11 @@ graph_differencing_engine::FPGAHub_gumtree::extractAddActions() {
 
   for (graph::module *m : this->dg_unmapped) {
 
+    if (this->dg_parent_map.find(m->id) == this->dg_parent_map.end()) {
+      std::cout << "Add of a root?" << std::endl;
+      continue;
+    }
+
     addModule add = {*m, *this->dg_parent_map[m->id]};
     adds.push_back(add);
   }

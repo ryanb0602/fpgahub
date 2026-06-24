@@ -161,7 +161,7 @@ void graph_differencing_engine::FPGAHub_gumtree::bottom_up_phase() {
       if (t2 != nullptr) {
 
         double current_dice = this->dice(t1, t2);
-        if (current_dice > this->minDice) {
+        if (current_dice > this->minDice || t1->name == t2->name) {
 
           this->M[t1] = t2;
           mapped_t2_nodes.insert(t2);
@@ -326,7 +326,7 @@ double graph_differencing_engine::FPGAHub_gumtree::dice(graph::module *t1,
   int denominator = desc1.size() + desc2.size();
 
   if (denominator == 0) {
-    return 0.0;
+    return (t1->name == t2->name) ? 1.0 : 0.0;
   }
 
   int common_mappings = 0;
@@ -402,7 +402,7 @@ graph::module *graph_differencing_engine::FPGAHub_gumtree::find_candidate(
 
     double current_score = this->dice(t1, t2);
 
-    if (current_score > 0.0 && current_score > max_dice_score) {
+    if (current_score > max_dice_score) {
       max_dice_score = current_score;
       best_candidate = t2;
     }

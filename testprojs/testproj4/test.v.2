@@ -8,15 +8,9 @@ module math_unit(input a, input b, output c);
     assign c = a + b + 1; // <--- Changed! 
 endmodule
 
-module TEST(output a, input b);
-    assign a = ~b;
-endmodule
-
 //test for addition on an addition
 module test_test_test(output a, input b);
-    wire z;
-    TEST u1(.a(z), .b(b));
-    assign a = !z;
+    assign a = !b;
 endmodule
 
 // 3. THE INSERTION (Completely new module)
