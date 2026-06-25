@@ -100,6 +100,7 @@ void slang_wrapper::GraphBuilder::handle(
 
   slang_wrapper::PortHashVisitor port_visitor;
   node.body.visit(port_visitor);
+  node.getDefinition().visit(port_visitor);
   std::string raw_ps = port_visitor.port_signature;
   SHA256 port_hasher;
   port_hasher.update(raw_ps);

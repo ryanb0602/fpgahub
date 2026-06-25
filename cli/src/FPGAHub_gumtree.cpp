@@ -196,6 +196,9 @@ graph::module *
 graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target,
                                                       std::string &root_name) {
 
+  if (target == nullptr)
+    return nullptr;
+
   // make sure not dealing with empty graph
   if (target->modules.size() < 1) {
     return nullptr;
@@ -213,6 +216,9 @@ graph_differencing_engine::FPGAHub_gumtree::find_root(graph *target,
 void graph_differencing_engine::FPGAHub_gumtree::generate_map(
     u_edge_map &target_map, graph *target_graph,
     std::map<std::string, graph::module *> &parent_map) {
+
+  if (target_graph == nullptr)
+    return;
 
   // populate the edge map
   for (graph::edge *e : target_graph->edges) {
@@ -286,6 +292,10 @@ bool graph_differencing_engine::FPGAHub_gumtree::isomorphic(graph::module *t1,
 
 void graph_differencing_engine::FPGAHub_gumtree::count_hashes(
     graph *target_graph, std::map<std::string, int> &counts) {
+
+  if (target_graph == nullptr)
+    return;
+
   for (graph::module *m : target_graph->modules) {
     counts[m->merk_hash]++;
   }

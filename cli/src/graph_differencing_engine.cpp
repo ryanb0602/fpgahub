@@ -1,4 +1,5 @@
 #include "../include/graph_differencing_engine.h"
+#include <unordered_set>
 
 template <class... Ts> struct overloaded : Ts... {
   using Ts::operator()...;
@@ -89,8 +90,9 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
   FPGAHub_gumtree fpgahubgt;
   graph old_graph;
   old_graph.load_from_file();
+  graph *old_treeified = this->expand_graph(&old_graph, root_name);
   std::vector<moduleEditType> edit_script =
-      fpgahubgt.edit_script(&old_graph, this->current_graph, root_name);
+      fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
 
   std::cout << "\n--- Edit Script ---\n";
   for (const auto &edit : edit_script) {
@@ -119,5 +121,89 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
         edit);
   }
   std::cout << "-----------------------------\n";
+  delete old_treeified;
   return;
+}
+
+void graph_differencing_engine::commit_edit_script(std::string &root_name) {
+  generate_merkles();
+
+  FPGAHub_gumtree fpgahubgt;
+  graph old_graph;
+  old_graph.load_from_file();
+  graph *old_treeified = this->expand_graph(&old_graph, root_name);
+  std::vector<moduleEditType> edit_script =
+      fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
+
+  if (edit_script.size() == 0) {
+    std::cout << "No changes to commit!" << std::endl;
+    return;
+  }
+
+  std::cout << "Writing cache..." << std::endl;
+
+  this->current_graph->write_to_file(root_name);
+
+  std::cout << "Done writing cache, saving edit actions..." << std::endl;
+
+  delete old_treeified;
+  return;
+}
+
+graph *graph_differencing_engine::expand_graph(graph *target,
+                                               std::string &root) {
+
+  graph *new_graph;
+
+  graph::module *root_node = nullptr;
+  for (graph::module *m : target->modules) {
+    if (m->name == root) {
+      root_node = m;
+      break;
+    }
+  }
+
+  if (!root_node) {
+    return nullptr;
+  }
+  graph *tree_graph = new graph();
+
+  unfold_recursive(root_node, tree_graph);
+  return tree_graph;
+}
+
+graph::module *graph_differencing_engine::unfold_recursive(graph::module *orig,
+                                                           graph *tree_graph) {
+
+  // copy module
+  if (!orig)
+    return nullptr;
+  graph::module *new_mod = new graph::module();
+
+  new_mod->name = orig->name;
+  new_mod->id = generate_uuid_v4();
+  new_mod->hash = orig->hash;
+  new_mod->file = orig->file;
+  new_mod->merk_hash = orig->merk_hash;
+  new_mod->interface_port_hash = orig->interface_port_hash;
+
+  tree_graph->modules.push_back(new_mod);
+
+  // iterate over children and make standalone copies recursively
+  for (const graph::compatibility_tracker &tracker : orig->child_interfaces) {
+
+    graph::module *new_child = this->unfold_recursive(tracker.to, tree_graph);
+    if (new_child) {
+      graph::compatibility_tracker new_tracker;
+      new_tracker.to = new_child;
+      new_tracker.interface_port_hash = tracker.interface_port_hash;
+      new_mod->child_interfaces.push_back(new_tracker);
+
+      graph::edge *new_edge = new graph::edge();
+      new_edge->from = new_mod;
+      new_edge->to = new_child;
+      tree_graph->edges.push_back(new_edge);
+    }
+  }
+  return new_mod;
 }

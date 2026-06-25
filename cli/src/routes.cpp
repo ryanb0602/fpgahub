@@ -60,7 +60,7 @@ void logoutUser_route(Authenticator &auth) {
   auth.storeAuthToken(empty_token);
 }
 
-void print_edit_script(std::string root_module) {
+void print_edit_script(std::string &root_module) {
   slang_wrapper slang_wrap;
   slang_wrap.load_to_FPGAHub_format();
 
@@ -69,7 +69,19 @@ void print_edit_script(std::string root_module) {
   graph *graph = slang_wrap.retrieve_graph();
 
   gde.load_current_graph(graph);
-
   gde.print_edit_script(root_module);
+  delete graph;
+}
+
+void commit_edit_script(std::string &root_module) {
+  slang_wrapper slang_wrap;
+  slang_wrap.load_to_FPGAHub_format();
+
+  graph_differencing_engine gde;
+
+  graph *graph = slang_wrap.retrieve_graph();
+
+  gde.load_current_graph(graph);
+  gde.commit_edit_script(root_module);
   delete graph;
 }

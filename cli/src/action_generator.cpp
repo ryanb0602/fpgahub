@@ -64,7 +64,11 @@ graph_differencing_engine::FPGAHub_gumtree::extractMoveActions() {
 
 void graph_differencing_engine::FPGAHub_gumtree::populate_unmapped() {
 
-  std::vector<graph::module *> sg_modules = this->source_graph->modules;
+  std::vector<graph::module *> sg_modules;
+  if (this->source_graph != nullptr) {
+    sg_modules = this->source_graph->modules;
+  }
+
   std::vector<graph::module *> dg_modules = this->destination_graph->modules;
 
   for (const auto &[key, value] : this->M) {

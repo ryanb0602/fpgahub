@@ -26,8 +26,13 @@ public:
   }
 
   void print_edit_script(std::string &root_name);
+  void commit_edit_script(std::string &root_name);
 
 private:
+  // preprocessing step that turns dag into ast by duplicating nodes
+  graph *expand_graph(graph *target, std::string &root);
+  graph::module *unfold_recursive(graph::module *orig, graph *tree_graph);
+
   void generate_merkles();
 
   graph *current_graph;

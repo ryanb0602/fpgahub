@@ -34,6 +34,12 @@ int main(int argc, char **argv) {
       ->required();
   status->callback([&]() { print_edit_script(root_module); });
 
+  auto commit = app.add_subcommand("commit", "Save changes");
+
+  commit->add_option("module_name", root_module, "Name of the module to diff")
+      ->required();
+  commit->callback([&]() { commit_edit_script(root_module); });
+
   CLI11_PARSE(app, argc, argv);
 
   return 0;
