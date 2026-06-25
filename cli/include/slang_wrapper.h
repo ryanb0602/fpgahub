@@ -16,7 +16,10 @@
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
+#include "slang/syntax/AllSyntax.h"
+#include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxTree.h"
+#include "slang/syntax/SyntaxVisitor.h"
 #include "slang/text/SourceManager.h"
 
 #include "../include/graph.h"
@@ -77,59 +80,14 @@ private:
   // visitor that visits all non-module structural elements of a tree and
   // creates a canonical hash
   class CanonicalHashBuilder
-      : public slang::ast::ASTVisitor<CanonicalHashBuilder,
-                                      slang::ast::VisitFlags::AllGood> {
+      : public slang::syntax::SyntaxVisitor<CanonicalHashBuilder> {
   public:
     bool is_sub_visitor = false;
     std::string canonical_string = "";
 
-    // we do not want to visit or include modules, this is to create a
-    // structural hash for just the module of interest. this will ensure
-    // modules (instances in slang) are skipped
-    void handle(const slang::ast::InstanceSymbol &node) {
-      std::string def_name = std::string(node.getDefinition().name);
-      std::string inst_name = std::string(node.name);
-
-      // Create a unique string representing this specific instantiation
-      std::string signature = "INSTANCE_DEF:" + def_name + ":NAME:" + inst_name;
-
-      // 2. Append to the hash components
-      if (!this->is_sub_visitor) {
-        this->components.push_back(signature);
-      } else {
-        this->canonical_string += signature + ";";
-      }
-
-      // 3. STOP TRAVERSAL.
-      // Do NOT call capture_subtree(node);
-      // Do NOT call this->visitDefault(node);
-      //
-      // By returning here, we record that the instance exists in the parent,
-      // but we prevent the visitor from bleeding into the child module's
-      // internal logic.
-      return;
-    }
-
-    // exploration functions to build the string
-
-    void handle(const slang::ast::ContinuousAssignSymbol &node);
-    void handle(const slang::ast::VariableSymbol &node);
-
-    template <typename T> void handle(const T &node);
-
-    void handle(const slang::ast::NamedValueExpression &node);
-
-    void handle(const slang::ast::IntegerLiteral &node);
-
-    void handle(const slang::ast::StringLiteral &node);
-
-    void handle(const slang::ast::GenerateBlockSymbol &node);
-
-    void handle(const slang::ast::GenerateBlockArraySymbol &node);
-
-    void handle(const slang::ast::SubroutineSymbol &node);
-
-    void handle(const slang::ast::TypeAliasType &node);
+    void visitDefault(const slang::syntax::SyntaxNode &node);
+    void handle(const slang::syntax::ModuleDeclarationSyntax &node);
+    void handle(const slang::syntax::HierarchyInstantiationSyntax &node);
 
     std::string get_canonical_string();
     std::string get_raw_string();
@@ -137,18 +95,6 @@ private:
   private:
     std::vector<std::string> components;
     std::string capture_subtree(const auto &node);
-  };
-
-  class PortHashVisitor
-      : public slang::ast::ASTVisitor<PortHashVisitor,
-                                      slang::ast::VisitFlags::AllGood> {
-  public:
-    std::string port_signature = "";
-
-    // do not traverse down into modules
-    void handle(const slang::ast::InstanceSymbol &node) { return; }
-
-    void handle(const slang::ast::PortSymbol &node);
   };
 };
 

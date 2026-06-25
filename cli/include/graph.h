@@ -35,7 +35,7 @@ public:
   void load_from_file();
   void write_to_file(std::string &root_name);
 
-  struct compatibility_tracker;
+  struct module;
 
   // module body struct, a helper struct to make things in the graph
   // differencing engine look a little cleaner
@@ -43,8 +43,7 @@ public:
     std::string hash;
     std::string file;
     std::string merk_hash;
-    std::string interface_port_hash;
-    std::vector<compatibility_tracker> child_interfaces;
+    std::vector<module *> child_interfaces;
   };
 
   struct module {
@@ -53,21 +52,14 @@ public:
     std::string hash;
     std::string file;
     std::string merk_hash;
-    std::string interface_port_hash;
-    std::vector<compatibility_tracker> child_interfaces;
+    std::vector<module *> child_interfaces;
     module_body getModuleBody() {
       module_body ret = {.hash = this->hash,
                          .file = this->file,
                          .merk_hash = this->merk_hash,
-                         .interface_port_hash = this->interface_port_hash,
                          .child_interfaces = this->child_interfaces};
       return ret;
     }
-  };
-
-  struct compatibility_tracker {
-    module *to;
-    std::string interface_port_hash;
   };
 
   struct edge {

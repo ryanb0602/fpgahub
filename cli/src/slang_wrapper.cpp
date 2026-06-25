@@ -92,19 +92,12 @@ void slang_wrapper::GraphBuilder::handle(
   new_module->file = std::string(this->sourceManager.getFileName(location));
 
   slang_wrapper::CanonicalHashBuilder hash_builder;
-  node.body.visit(hash_builder);
+
+  node.getDefinition().getSyntax()->visit(hash_builder);
   std::string raw_string = hash_builder.get_canonical_string();
   SHA256 hasher;
   hasher.update(raw_string);
   new_module->hash = hasher.final();
-
-  slang_wrapper::PortHashVisitor port_visitor;
-  node.body.visit(port_visitor);
-  node.getDefinition().visit(port_visitor);
-  std::string raw_ps = port_visitor.port_signature;
-  SHA256 port_hasher;
-  port_hasher.update(raw_ps);
-  new_module->interface_port_hash = port_hasher.final();
 
   // create back edge for this node
   if (!this->parent_modules.empty()) {
@@ -114,10 +107,7 @@ void slang_wrapper::GraphBuilder::handle(
 
     this->FPGAHub_tree->edges.push_back(new_edge);
 
-    graph::compatibility_tracker tracker;
-    tracker.to = new_module;
-    tracker.interface_port_hash = new_module->interface_port_hash;
-    new_edge->from->child_interfaces.push_back(tracker);
+    new_edge->from->child_interfaces.push_back(new_module);
   }
 
   // here is where you would calculate the canonical structure hash for the
@@ -131,62 +121,6 @@ void slang_wrapper::GraphBuilder::handle(
 
   // pop the parent
   this->parent_modules.pop();
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::ContinuousAssignSymbol &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("ASSIGN:" +
-                               capture_subtree(node.getAssignment()));
-    return;
-  }
-  this->visitDefault(node);
-}
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::VariableSymbol &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("VAR:" + std::string(node.name));
-    return;
-  }
-  this->visitDefault(node);
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::GenerateBlockSymbol &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("GEN_BLOCK:" + capture_subtree(node));
-    return;
-  }
-  this->visitDefault(node);
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::GenerateBlockArraySymbol &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("GEN_ARRAY:" + capture_subtree(node));
-    return;
-  }
-  this->visitDefault(node);
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::SubroutineSymbol &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("FUNC_TASK:" + std::string(node.name) + "=" +
-                               capture_subtree(node));
-    return;
-  }
-  this->visitDefault(node);
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::TypeAliasType &node) {
-  if (!this->is_sub_visitor) {
-    this->components.push_back("TYPEDEF:" + std::string(node.name) + "=" +
-                               capture_subtree(node));
-    return;
-  }
-  this->visitDefault(node);
 }
 
 std::string slang_wrapper::CanonicalHashBuilder::get_canonical_string() {
@@ -212,52 +146,59 @@ slang_wrapper::CanonicalHashBuilder::capture_subtree(const auto &node) {
   return sub_visitor.get_raw_string();
 }
 
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::NamedValueExpression &node) {
-  this->canonical_string +=
-      "EXPR:NamedValue:" + std::string(node.symbol.name) + ";";
-  this->visitDefault(node);
+void slang_wrapper::CanonicalHashBuilder::visitDefault(
+    const slang::syntax::SyntaxNode &node) {
+
+  canonical_string +=
+      "NODE:" + std::string(slang::syntax::toString(node.kind)) + ";";
+
+  for (size_t i = 0; i < node.getChildCount(); i++) {
+    if (auto childNode = node.childNode(i)) {
+      childNode->visit(*this);
+    } else {
+      auto token = node.childToken(i);
+      if (token.kind != slang::parsing::TokenKind::Unknown) {
+        canonical_string +=
+            "TOK:" + std::string(slang::parsing::toString(token.kind));
+
+        if (token.kind == slang::parsing::TokenKind::Identifier ||
+            token.kind == slang::parsing::TokenKind::IntegerLiteral ||
+            token.kind == slang::parsing::TokenKind::StringLiteral ||
+            token.kind == slang::parsing::TokenKind::RealLiteral) {
+
+          canonical_string += ":" + std::string(token.valueText());
+        }
+        canonical_string += ";";
+      }
+    }
+  }
 }
 
 void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::IntegerLiteral &node) {
-  this->canonical_string += "EXPR:Int:" + node.getValue().toString() + ";";
-  this->visitDefault(node);
-}
-
-void slang_wrapper::CanonicalHashBuilder::handle(
-    const slang::ast::StringLiteral &node) {
-  this->canonical_string += "EXPR:String:" + std::string(node.getValue()) + ";";
-  this->visitDefault(node);
-}
-
-template <typename T>
-void slang_wrapper::CanonicalHashBuilder::handle(const T &node) {
-  if constexpr (std::is_base_of_v<slang::ast::Expression, T>) {
-    this->canonical_string +=
-        "EXPR:" + std::string(slang::ast::toString(node.kind)) + ";";
-  } else if constexpr (std::is_base_of_v<slang::ast::Statement, T>) {
-    this->canonical_string +=
-        "STMT:" + std::string(slang::ast::toString(node.kind)) + ";";
+    const slang::syntax::ModuleDeclarationSyntax &node) {
+  if (is_sub_visitor) {
+    canonical_string +=
+        "NESTED_MODULE:" + std::string(node.header->name.valueText()) + ";";
+    return;
   }
 
-  this->visitDefault(node);
+  canonical_string +=
+      "MODULE:" + std::string(node.header->name.valueText()) + ";";
+
+  for (auto member : node.members) {
+    components.push_back("MEMBER:" + capture_subtree(*member));
+  }
 }
 
-void slang_wrapper::PortHashVisitor::handle(
-    const slang::ast::PortSymbol &node) {
-  // start with undefined direction
-  std::string dir = "UNKNOWN";
+void slang_wrapper::CanonicalHashBuilder::handle(
+    const slang::syntax::HierarchyInstantiationSyntax &node) {
+  std::string def_name = std::string(node.type.valueText());
+  std::string signature = "INSTANCE_DEF:" + def_name + ";";
 
-  // set direction according to real direction
-  if (node.direction == slang::ast::ArgumentDirection::In)
-    dir = "IN";
-  else if (node.direction == slang::ast::ArgumentDirection::Out)
-    dir = "OUT";
-  else if (node.direction == slang::ast::ArgumentDirection::InOut)
-    dir = "INOUT";
-
-  size_t width = node.getType().getBitWidth();
-  this->port_signature += "PORT:" + std::string(node.name) + ":DIR:" + dir +
-                          ":WIDTH:" + std::to_string(width) + "\n";
+  if (!is_sub_visitor) {
+    components.push_back(signature + capture_subtree(node));
+  } else {
+    canonical_string += signature;
+    visitDefault(node);
+  }
 }

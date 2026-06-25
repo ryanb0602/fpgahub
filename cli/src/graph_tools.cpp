@@ -38,8 +38,7 @@ void graph::load_from_file() {
 
       current_mod->id = generate_uuid_v4();
 
-      ss >> current_mod->name >> current_mod->hash >> current_mod->merk_hash >>
-          current_mod->interface_port_hash;
+      ss >> current_mod->name >> current_mod->hash >> current_mod->merk_hash;
 
       this->modules.push_back(current_mod);
       name_to_module[current_mod->name] = current_mod;
@@ -70,8 +69,7 @@ void graph::load_from_file() {
       if (name_to_module.find(child_name) != name_to_module.end()) {
         module *child_mod = name_to_module[child_name];
 
-        parent->child_interfaces.push_back(
-            compatibility_tracker{child_mod, child_int_hash});
+        parent->child_interfaces.push_back(child_mod);
 
         this->edges.push_back(new edge{parent, child_mod});
       } else {
@@ -131,8 +129,8 @@ void graph::write_to_file(std::string &root_name) {
     }
 
     for (const auto &child : m->child_interfaces) {
-      if (child.to) {
-        std::string edge_str = child.to->name + " " + child.interface_port_hash;
+      if (child) {
+        std::string edge_str = child->name + " " + child->hash;
         dag_nodes[m->name].child_edges.insert(edge_str);
       }
     }
@@ -150,8 +148,8 @@ void graph::write_to_file(std::string &root_name) {
   for (const auto &[name, node] : dag_nodes) {
     module *rep = node.rep;
 
-    out << "MODULE " << name << " " << rep->hash << " " << rep->merk_hash << " "
-        << rep->interface_port_hash << "\n";
+    out << "MODULE " << name << " " << rep->hash << " " << rep->merk_hash
+        << "\n";
 
     for (const std::string &filepath : node.files) {
       fs::path src_path(filepath);

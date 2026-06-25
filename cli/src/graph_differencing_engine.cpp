@@ -185,19 +185,15 @@ graph::module *graph_differencing_engine::unfold_recursive(graph::module *orig,
   new_mod->hash = orig->hash;
   new_mod->file = orig->file;
   new_mod->merk_hash = orig->merk_hash;
-  new_mod->interface_port_hash = orig->interface_port_hash;
 
   tree_graph->modules.push_back(new_mod);
 
   // iterate over children and make standalone copies recursively
-  for (const graph::compatibility_tracker &tracker : orig->child_interfaces) {
+  for (graph::module *m : orig->child_interfaces) {
 
-    graph::module *new_child = this->unfold_recursive(tracker.to, tree_graph);
+    graph::module *new_child = this->unfold_recursive(m, tree_graph);
     if (new_child) {
-      graph::compatibility_tracker new_tracker;
-      new_tracker.to = new_child;
-      new_tracker.interface_port_hash = tracker.interface_port_hash;
-      new_mod->child_interfaces.push_back(new_tracker);
+      new_mod->child_interfaces.push_back(new_child);
 
       graph::edge *new_edge = new graph::edge();
       new_edge->from = new_mod;
