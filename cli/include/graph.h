@@ -21,6 +21,17 @@ std::string get_head();
 
 class graph {
 public:
+  ~graph() {
+    for (edge *e : this->edges) {
+      delete e;
+    }
+    this->edges.clear();
+
+    for (module *m : this->modules) {
+      delete m;
+    }
+    this->modules.clear();
+  }
   void load_from_file();
   void write_to_file(std::string &root_name);
 

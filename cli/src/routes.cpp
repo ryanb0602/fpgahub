@@ -65,7 +65,11 @@ void print_edit_script(std::string root_module) {
   slang_wrap.load_to_FPGAHub_format();
 
   graph_differencing_engine gde;
-  gde.load_current_graph(slang_wrap.retrieve_graph());
+
+  graph *graph = slang_wrap.retrieve_graph();
+
+  gde.load_current_graph(graph);
 
   gde.print_edit_script(root_module);
+  delete graph;
 }
