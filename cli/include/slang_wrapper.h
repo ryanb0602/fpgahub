@@ -86,6 +86,7 @@ private:
     std::string canonical_string = "";
 
     void visitDefault(const slang::syntax::SyntaxNode &node);
+    void handle(const slang::syntax::SyntaxNode &node) { visitDefault(node); };
     void handle(const slang::syntax::ModuleDeclarationSyntax &node);
     void handle(const slang::syntax::HierarchyInstantiationSyntax &node);
 
