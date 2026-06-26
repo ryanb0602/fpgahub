@@ -64,6 +64,8 @@ private:
   using moduleEditType =
       std::variant<updateModule, addModule, disconnectModule, moveModule>;
 
+  void coalesce_edit_script(std::vector<moduleEditType> &edit_script);
+
   // mapping to simplify mouthful type
   using u_edge_map = std::map<std::string, std::vector<graph::edge *>>;
 

@@ -97,6 +97,8 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
   std::vector<moduleEditType> edit_script =
       fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
 
+  this->coalesce_edit_script(edit_script);
+
   std::cout << "\n--- Edit Script ---\n";
   for (const auto &edit : edit_script) {
     std::visit(
@@ -140,6 +142,8 @@ void graph_differencing_engine::commit_edit_script(std::string &root_name) {
 
   std::vector<moduleEditType> edit_script =
       fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
+
+  this->coalesce_edit_script(edit_script);
 
   if (edit_script.size() == 0) {
     std::cout << "No changes to commit!" << std::endl;
@@ -261,4 +265,46 @@ void graph_differencing_engine::prune_to_root_s(graph *g,
       ++it;
     }
   }
+}
+
+void graph_differencing_engine::coalesce_edit_script(
+    std::vector<moduleEditType> &edit_script) {
+  std::vector<moduleEditType> coalesced_script;
+
+  std::unordered_set<std::string> seen_updates;
+  std::unordered_set<std::string> seen_adds;
+  std::unordered_set<std::string> seen_disconnects;
+  std::unordered_set<std::string> seen_moves;
+
+  for (const auto &edit : edit_script) {
+    std::visit(overloaded{[&](const updateModule &e) {
+                            if (seen_updates.insert(e.name).second) {
+                              coalesced_script.push_back(edit);
+                            }
+                          },
+                          [&](const addModule &e) {
+                            std::string sig =
+                                e.parent.name + "->" + e.new_module.name;
+                            if (seen_adds.insert(sig).second) {
+                              coalesced_script.push_back(edit);
+                            }
+                          },
+                          [&](const disconnectModule &e) {
+                            std::string sig =
+                                e.parent.name + "->" + e.module_rem.name;
+                            if (seen_disconnects.insert(sig).second) {
+                              coalesced_script.push_back(edit);
+                            }
+                          },
+                          [&](const moveModule &e) {
+                            std::string sig =
+                                e.parent.name + "->" + e.module_move.name;
+                            if (seen_moves.insert(sig).second) {
+                              coalesced_script.push_back(edit);
+                            }
+                          }},
+               edit);
+  }
+
+  edit_script = std::move(coalesced_script);
 }

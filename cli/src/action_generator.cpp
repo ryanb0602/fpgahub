@@ -106,9 +106,13 @@ graph_differencing_engine::FPGAHub_gumtree::extractDisconnectActions() {
   std::vector<disconnectModule> disconnects;
 
   for (graph::module *m : this->sg_unmapped) {
-
-    disconnectModule disconnect = {*m};
-    disconnects.push_back(disconnect);
+    if (this->sg_parent_map.find(m->id) != this->sg_parent_map.end()) {
+      disconnectModule disconnect = {*m, *this->sg_parent_map[m->id]};
+      disconnects.push_back(disconnect);
+    } else {
+      disconnectModule disconnect = {*m};
+      disconnects.push_back(disconnect);
+    }
   }
 
   this->coalesceDisconnects(disconnects);
