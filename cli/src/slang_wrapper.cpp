@@ -95,6 +95,9 @@ void slang_wrapper::GraphBuilder::handle(
 
   node.getDefinition().getSyntax()->visit(hash_builder);
   std::string raw_string = hash_builder.get_canonical_string();
+
+  std::cout << raw_string << std::endl;
+
   SHA256 hasher;
   hasher.update(raw_string);
   new_module->hash = hasher.final();

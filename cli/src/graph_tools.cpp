@@ -114,7 +114,7 @@ void graph::write_to_file(std::string &root_name) {
   struct MergedNode {
     module *rep;
     std::set<std::string> files;
-    std::set<std::string> child_edges;
+    std::vector<std::string> child_edges;
   };
 
   std::map<std::string, MergedNode> dag_nodes;
@@ -131,7 +131,7 @@ void graph::write_to_file(std::string &root_name) {
     for (const auto &child : m->child_interfaces) {
       if (child) {
         std::string edge_str = child->name + " " + child->hash;
-        dag_nodes[m->name].child_edges.insert(edge_str);
+        dag_nodes[m->name].child_edges.push_back(edge_str);
       }
     }
   }

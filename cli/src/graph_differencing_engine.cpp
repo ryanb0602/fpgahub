@@ -91,6 +91,9 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
   graph old_graph;
   old_graph.load_from_file();
   graph *old_treeified = this->expand_graph(&old_graph, root_name);
+
+  this->prune_to_root_s(this->current_graph, root_name);
+
   std::vector<moduleEditType> edit_script =
       fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
 
@@ -132,6 +135,9 @@ void graph_differencing_engine::commit_edit_script(std::string &root_name) {
   graph old_graph;
   old_graph.load_from_file();
   graph *old_treeified = this->expand_graph(&old_graph, root_name);
+
+  this->prune_to_root_s(this->current_graph, root_name);
+
   std::vector<moduleEditType> edit_script =
       fpgahubgt.edit_script(old_treeified, this->current_graph, root_name);
 
@@ -202,4 +208,57 @@ graph::module *graph_differencing_engine::unfold_recursive(graph::module *orig,
     }
   }
   return new_mod;
+}
+
+void graph_differencing_engine::prune_to_root_s(graph *g,
+                                                std::string &root_name) {
+
+  if (!g)
+    return;
+
+  graph::module *root_node = nullptr;
+  for (graph::module *m : g->modules) {
+    if (m->name == root_name) {
+      root_node = m;
+      break;
+    }
+  }
+
+  if (!root_node) {
+    return;
+  }
+
+  std::unordered_set<graph::module *> reachable;
+  std::vector<graph::module *> stack = {root_node};
+  reachable.insert(root_node);
+
+  while (!stack.empty()) {
+    graph::module *curr = stack.back();
+    stack.pop_back();
+
+    for (graph::module *child : curr->child_interfaces) {
+      if (reachable.insert(child).second) {
+        stack.push_back(child);
+      }
+    }
+  }
+
+  for (auto it = g->modules.begin(); it != g->modules.end();) {
+    if (reachable.find(*it) == reachable.end()) {
+      delete *it;
+      it = g->modules.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  for (auto it = g->edges.begin(); it != g->edges.end();) {
+    if (reachable.find((*it)->from) == reachable.end() ||
+        reachable.find((*it)->to) == reachable.end()) {
+      delete *it;
+      it = g->edges.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }

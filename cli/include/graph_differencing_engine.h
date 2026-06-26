@@ -32,6 +32,7 @@ private:
   // preprocessing step that turns dag into ast by duplicating nodes
   graph *expand_graph(graph *target, std::string &root);
   graph::module *unfold_recursive(graph::module *orig, graph *tree_graph);
+  void prune_to_root_s(graph *g, std::string &root_name);
 
   void generate_merkles();
 

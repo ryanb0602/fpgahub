@@ -315,7 +315,6 @@ bool graph_differencing_engine::FPGAHub_gumtree::is_uniquely_isomorphic(
 
 void graph_differencing_engine::FPGAHub_gumtree::map_subtree(
     graph::module *t1, graph::module *t2) {
-  this->M[t1] = t2;
 
   std::vector<graph::edge *> children1 = this->sg_edge_map[t1->id];
   std::vector<graph::edge *> children2 = this->dg_edge_map[t2->id];
@@ -326,9 +325,16 @@ void graph_differencing_engine::FPGAHub_gumtree::map_subtree(
   std::sort(children1.begin(), children1.end(), hash_sorter);
   std::sort(children2.begin(), children2.end(), hash_sorter);
 
-  for (size_t i = 0; i < children1.size(); ++i) {
+  size_t min_size = std::min(children1.size(), children2.size());
+
+  for (size_t i = 0; i < min_size; i++) {
     this->map_subtree(children1[i]->to, children2[i]->to);
   }
+
+  if (!this->isomorphic(t1, t2))
+    return;
+
+  this->M[t1] = t2;
 }
 
 double graph_differencing_engine::FPGAHub_gumtree::dice(graph::module *t1,
