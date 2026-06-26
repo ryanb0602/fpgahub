@@ -54,7 +54,7 @@ graph_differencing_engine::FPGAHub_gumtree::extractMoveActions() {
     // if different parents, make move
     if (m1_parent->name != m2_parent->name) {
 
-      moveModule new_move = {*value, *m2_parent};
+      moveModule new_move = {*value, *m1_parent, *m2_parent};
       moves.push_back(new_move);
     }
   }
@@ -209,7 +209,7 @@ void graph_differencing_engine::FPGAHub_gumtree::sort_edit_script(
         dependency_id = ptr->parent.id;
         my_id = ptr->new_module.id;
       } else if (auto *ptr = std::get_if<moveModule>(&stack_top)) {
-        dependency_id = ptr->parent.id;
+        dependency_id = ptr->new_parent.id;
         my_id = ptr->module_move.id;
       }
 

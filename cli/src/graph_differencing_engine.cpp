@@ -120,8 +120,9 @@ void graph_differencing_engine::print_edit_script(std::string &root_name) {
                      std::cout << "DISCONNECT: " << e.module_rem.name << "\n";
                    },
                    [&](const moveModule &e) {
-                     std::cout << "MOVE: " << e.module_move.name
-                               << " to new parent " << e.parent.name << "\n";
+                     std::cout << "MOVE: " << e.module_move.name << " from "
+                               << e.old_parent.name << " to new parent "
+                               << e.new_parent.name << "\n";
                    }},
         edit);
   }
@@ -152,9 +153,19 @@ void graph_differencing_engine::commit_edit_script(std::string &root_name) {
 
   std::cout << "Writing cache..." << std::endl;
 
-  this->current_graph->write_to_file(root_name);
+  std::string last_commit = this->current_graph->write_to_file(root_name);
 
   std::cout << "Done writing cache, saving edit actions..." << std::endl;
+
+  auto it = std::find_if(
+      this->current_graph->modules.begin(), this->current_graph->modules.end(),
+      [&root_name](const graph::module *m) { return m->name == root_name; });
+
+  graph::module *root = *it;
+
+  this->write_edit_script(edit_script, last_commit, root->merk_hash);
+
+  std::cout << "Done..." << std::endl;
 
   delete old_treeified;
   return;
@@ -297,8 +308,9 @@ void graph_differencing_engine::coalesce_edit_script(
                             }
                           },
                           [&](const moveModule &e) {
-                            std::string sig =
-                                e.parent.name + "->" + e.module_move.name;
+                            std::string sig = e.old_parent.name + "->" +
+                                              e.module_move.name + "->" +
+                                              e.new_parent.name;
                             if (seen_moves.insert(sig).second) {
                               coalesced_script.push_back(edit);
                             }
@@ -307,4 +319,54 @@ void graph_differencing_engine::coalesce_edit_script(
   }
 
   edit_script = std::move(coalesced_script);
+}
+
+// In src/graph_differencing_engine.cpp
+
+void graph_differencing_engine::write_edit_script(
+    std::vector<moduleEditType> &edit_script, std::string &last_commit,
+    std::string &this_commit) {
+
+  namespace fs = std::filesystem;
+  fs::path script_file = fs::path(CACHE_DIR) / this_commit / "editscript";
+
+  std::ofstream out(script_file);
+  if (!out.is_open()) {
+    std::cerr << "Failed to open edit script file for writing.\n";
+    return;
+  }
+
+  // 1. Write the parent commit
+  out << "PARENT " << last_commit << "\n";
+
+  // 2. Write the actions
+  for (const auto &edit : edit_script) {
+    std::visit(overloaded{[&](const updateModule &e) {
+                            out << "UPDATE " << e.name << " "
+                                << e.module_body.hash << " "
+                                << e.module_body.file << " "
+                                << e.module_body.merk_hash << "\n";
+                          },
+                          [&](const addModule &e) {
+                            std::string parent_name =
+                                e.parent.name.empty() ? "ROOT" : e.parent.name;
+                            out << "ADD " << parent_name << " "
+                                << e.new_module.name << " " << e.new_module.hash
+                                << "\n";
+                          },
+                          [&](const disconnectModule &e) {
+                            std::string parent_name =
+                                e.parent.name.empty() ? "ROOT" : e.parent.name;
+                            out << "DISCONNECT " << parent_name << " "
+                                << e.module_rem.name << "\n";
+                          },
+                          [&](const moveModule &e) {
+                            out << "MOVE " << e.old_parent.name << " "
+                                << e.new_parent.name << " "
+                                << e.module_move.name << "\n";
+                          }},
+               edit);
+  }
+
+  out.close();
 }

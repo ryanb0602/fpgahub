@@ -13,7 +13,7 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-inline std::string cache_dir = ".fpgahub";
+#define CACHE_DIR ".fpgahub"
 
 bool update_head(const std::string &commit_hash);
 
@@ -33,7 +33,7 @@ public:
     this->modules.clear();
   }
   void load_from_file();
-  void write_to_file(std::string &root_name);
+  std::string write_to_file(std::string &root_name);
 
   struct module;
 

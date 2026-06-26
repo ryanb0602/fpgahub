@@ -2,6 +2,8 @@
 #include "./sha256.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <map>
 #include <queue>
@@ -15,6 +17,8 @@
 
 #ifndef GDE_H
 #define GDE_H
+
+#define CACHE_DIR ".fpgahub"
 
 class graph_differencing_engine {
 public:
@@ -58,13 +62,16 @@ private:
 
   struct moveModule {
     graph::module module_move;
-    graph::module parent;
+    graph::module old_parent;
+    graph::module new_parent;
   };
 
   using moduleEditType =
       std::variant<updateModule, addModule, disconnectModule, moveModule>;
 
   void coalesce_edit_script(std::vector<moduleEditType> &edit_script);
+  void write_edit_script(std::vector<moduleEditType> &edit_script,
+                         std::string &last_commit, std::string &this_commit);
 
   // mapping to simplify mouthful type
   using u_edge_map = std::map<std::string, std::vector<graph::edge *>>;

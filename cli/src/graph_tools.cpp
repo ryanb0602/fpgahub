@@ -8,7 +8,7 @@ void graph::load_from_file() {
   if (commit_hash == "")
     return;
 
-  fs::path graph_file = fs::path(cache_dir) / commit_hash / "graph";
+  fs::path graph_file = fs::path(CACHE_DIR) / commit_hash / "graph";
 
   std::ifstream in(graph_file);
   if (!in.is_open()) {
@@ -81,7 +81,7 @@ void graph::load_from_file() {
   }
 }
 
-void graph::write_to_file(std::string &root_name) {
+std::string graph::write_to_file(std::string &root_name) {
   namespace fs = std::filesystem;
 
   // find the root module
@@ -91,7 +91,7 @@ void graph::write_to_file(std::string &root_name) {
 
   if (it == this->modules.end()) {
     std::cerr << "Error: Root module '" << root_name << "' not found.\n";
-    return;
+    return "";
   }
 
   module *root_mod = *it;
@@ -99,15 +99,15 @@ void graph::write_to_file(std::string &root_name) {
   // commit hash is roots merkle hash because it represents all changes
   std::string commit_hash = root_mod->merk_hash;
 
-  // storage structure, (cache_dir/commit_hash/files)
-  fs::path commit_dir = fs::path(cache_dir) / commit_hash;
+  // storage structure, (CACHE_DIR/commit_hash/files)
+  fs::path commit_dir = fs::path(CACHE_DIR) / commit_hash;
   fs::path files_dir = commit_dir / "files";
 
   try {
     fs::create_directories(files_dir);
   } catch (const fs::filesystem_error &e) {
     std::cerr << "Filesystem error: " << e.what() << "\n";
-    return;
+    return "";
   }
 
   // merging nodes with the same name, this step is AST to DAG
@@ -142,7 +142,7 @@ void graph::write_to_file(std::string &root_name) {
 
   if (!out.is_open()) {
     std::cerr << "Error: Could not open " << graph_file << " for writing.\n";
-    return;
+    return "";
   }
 
   for (const auto &[name, node] : dag_nodes) {
@@ -179,12 +179,16 @@ void graph::write_to_file(std::string &root_name) {
 
   out.close();
 
+  std::string old_commit_hash = get_head();
+
   update_head(commit_hash);
+
+  return old_commit_hash;
 }
 
 bool update_head(const std::string &commit_hash) {
   namespace fs = std::filesystem;
-  fs::path head_file = fs::path(cache_dir) / "HEAD";
+  fs::path head_file = fs::path(CACHE_DIR) / "HEAD";
 
   std::ofstream out(head_file);
   if (!out.is_open()) {
@@ -199,7 +203,7 @@ bool update_head(const std::string &commit_hash) {
 
 std::string get_head() {
   namespace fs = std::filesystem;
-  fs::path head_file = fs::path(cache_dir) / "HEAD";
+  fs::path head_file = fs::path(CACHE_DIR) / "HEAD";
 
   if (!fs::exists(head_file)) {
     return "";
