@@ -39,6 +39,8 @@ public:
 
 private:
   std::vector<std::string> fetch_origin_commits(Authenticator &auth);
+  std::vector<std::string>
+  commits_to_send(std::vector<std::string> &repo_commits);
 
   // preprocessing step that turns dag into ast by duplicating nodes
   graph *expand_graph(graph *target, std::string &root);
