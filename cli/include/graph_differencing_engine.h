@@ -15,6 +15,9 @@
 #include <variant>
 #include <vector>
 
+#include "./auth.h"
+#include "./utils.h"
+
 #ifndef GDE_H
 #define GDE_H
 
@@ -32,7 +35,11 @@ public:
   void print_edit_script(std::string &root_name);
   void commit_edit_script(std::string &root_name);
 
+  void gde_push(Authenticator &auth);
+
 private:
+  std::vector<std::string> fetch_origin_commits(Authenticator &auth);
+
   // preprocessing step that turns dag into ast by duplicating nodes
   graph *expand_graph(graph *target, std::string &root);
   graph::module *unfold_recursive(graph::module *orig, graph *tree_graph);

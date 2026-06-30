@@ -85,3 +85,8 @@ void commit_edit_script(std::string &root_module) {
   gde.commit_edit_script(root_module);
   delete graph;
 }
+
+void gde_push(Authenticator &auth) {
+  graph_differencing_engine gde;
+  gde.gde_push(auth);
+}

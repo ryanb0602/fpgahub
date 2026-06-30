@@ -40,6 +40,10 @@ int main(int argc, char **argv) {
       ->required();
   commit->callback([&]() { commit_edit_script(root_module); });
 
+  auto push = app.add_subcommand("push", "Push local changes");
+
+  push->callback([&]() { gde_push(auth); });
+
   CLI11_PARSE(app, argc, argv);
 
   return 0;

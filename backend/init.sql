@@ -14,31 +14,39 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS files (
-    hash TEXT PRIMARY KEY,
-    filename TEXT NOT NULL,
-    stored_name TEXT NOT NULL,
-    last_change BIGINT,
-    modules TEXT[]
+    id UUID PRIMARY KEY,
+    hash TEXT NOT NULL,
+    filename TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS modules (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    file_id UUID NOT NULL,
+    merkle_hash TEXT NOT NULL,
+    hash TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS edges (
-    parent_module TEXT NOT NULL,
-    --parent_module_file_hash TEXT NOT NULL,
-    child_module TEXT NOT NULL
-    --child_module_file_hash TEXT NOT NULL
+    id UUID PRIMARY KEY,
+    from_id UUID NOT NULL,
+    to_id UUID NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS commits (
-    commit_hash TEXT PRIMARY KEY,
-    commit_by UUID REFERENCES users(uuid) ON DELETE SET NULL,
-    message TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    hashes TEXT[]
+    id TEXT PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL,
+    commit_by UUID NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS commit_testbenches (
+CREATE TYPE edit_type AS ENUM ('update', 'add', 'disconnect', 'move');
+
+CREATE TABLE IF NOT EXISTS edit_actions (
+    id UUID PRIMARY KEY,
     commit_id TEXT NOT NULL,
-    module_name TEXT NOT NULL,
-    testbench_file_id TEXT NOT NULL,
-    PRIMARY KEY (commit_id, module_name)
+    action edit_type NOT NULL,
+    old_module UUID,
+    new_module UUID,
+    old_parent UUID,
+    new_parent UUID
 );
