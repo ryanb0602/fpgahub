@@ -16,12 +16,15 @@
 #include <vector>
 
 #include "./auth.h"
+#include "./json.hpp"
 #include "./utils.h"
 
 #ifndef GDE_H
 #define GDE_H
 
 #define CACHE_DIR ".fpgahub"
+
+using json = nlohmann::json;
 
 class graph_differencing_engine {
 public:
@@ -220,5 +223,9 @@ private:
     void sort_edit_script(std::vector<moduleEditType> &edit_script);
   };
 };
+
+json parse_cached_edit_script_to_json(const std::string &commit_hash,
+                                      std::string &out_parent_commit);
+json parse_cached_graph_to_json(const std::string &commit_hash);
 
 #endif

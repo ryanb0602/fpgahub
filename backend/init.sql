@@ -44,6 +44,7 @@ CREATE TYPE edit_type AS ENUM ('update', 'add', 'disconnect', 'move');
 CREATE TABLE IF NOT EXISTS edit_actions (
     id UUID PRIMARY KEY,
     commit_id TEXT NOT NULL,
+    index_n INT NOT NULL,
     action edit_type NOT NULL,
     old_module UUID,
     new_module UUID,
