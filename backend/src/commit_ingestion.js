@@ -1,4 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
+const minioClient = require("./minio");
+const pool = require("./db");
 
 class graph_module {
   constructor(id, name, file_id, merkle_hash, hash) {
@@ -41,11 +43,11 @@ class edit_actions {
 }
 
 class commit_info {
-  constructor(id, edit_script, module, edge, parent_commit) {
+  constructor(id, edit_script, modules, edges, parent_commit) {
     this.id = id;
     this.edit_script = edit_script;
-    this.module = module;
-    this.edge = edge;
+    this.modules = modules;
+    this.edges = edges;
     this.parent_commit = parent_commit;
   }
 }
@@ -64,12 +66,10 @@ class ingester {
 
     if (commitPayload.graph && commitPayload.graph.modules) {
       for (const modData of commitPayload.graph.modules) {
-        const fileId = null;
-
         const newMod = new graph_module(
           modData.id || uuidv4(),
           modData.name,
-          fileId,
+          modData.file,
           modData.merk_hash,
           modData.hash,
         );
@@ -135,6 +135,28 @@ class ingester {
     } else {
       this.transactions.get(id).push(commitInfo);
     }
+  }
+
+  async needed_files(id) {
+    const tx = this.transactions.get(id);
+
+    let needed_files = new Set();
+
+    for (const commit of tx) {
+      for (const module of commit.modules) {
+        const query = await pool.query(
+          `SELECT COUNT(*) FROM files WHERE filename = $1 AND hash = $2`,
+          [module.file_id, commit.id],
+        );
+
+        if (parseInt(query.rows[0].count) === 0) {
+          needed_files.add(
+            JSON.stringify({ file: module.file_id, hash: commit.id }),
+          );
+        }
+      }
+    }
+    return [...needed_files].map(JSON.parse);
   }
 }
 

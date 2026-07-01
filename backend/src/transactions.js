@@ -31,9 +31,14 @@ router.post("/push", async (req, res) => {
       await ingesterInstance.ingest(commitPayload, trans_id);
     }
 
-    res
-      .status(200)
-      .json({ id: trans_id, message: "Successfully ingested all commits." });
+    const needed_files = await ingesterInstance.needed_files(trans_id);
+    console.log(needed_files);
+
+    res.status(200).json({
+      id: trans_id,
+      message: "Successfully ingested all commits.",
+      needed_files: needed_files,
+    });
   } catch (err) {
     console.error("Error during push ingestion:", err);
     res.status(500).json({ error: "Failed to process commits." });

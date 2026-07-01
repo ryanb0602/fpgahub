@@ -48,6 +48,7 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
 
   if (res && (res->status == 200 || res->status == 201)) {
     std::cout << "Successfully pushed" << std::endl;
+    std::cout << res->body << std::endl;
   } else {
     std::cerr << "Failed to push commit" << std::endl;
     if (res)
@@ -142,12 +143,11 @@ json parse_cached_graph_to_json(const std::string &commit_hash) {
       current_mod["name"] = name;
       current_mod["hash"] = hash;
       current_mod["merk_hash"] = merk_hash;
-      current_mod["files"] = json::array();
       current_mod["child_interfaces"] = json::array();
     } else if (token == "FILE") {
       std::string filename;
       ss >> filename;
-      current_mod["files"].push_back(filename);
+      current_mod["file"] = filename;
     } else if (token == "CHILD") {
       std::string child_name, child_hash;
       ss >> child_name >> child_hash;
