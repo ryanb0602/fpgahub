@@ -131,14 +131,14 @@ class ingester {
     const tx = this.transactions.get(id);
 
     if (!tx) {
-      this.transactions.set(id, [commitInfo]);
+      this.transactions.set(id, { commits: [commitInfo] });
     } else {
-      this.transactions.get(id).push(commitInfo);
+      this.transactions.get(id).commits.push(commitInfo);
     }
   }
 
   async needed_files(id) {
-    const tx = this.transactions.get(id);
+    const tx = this.transactions.get(id).commits;
 
     let needed_files = new Set();
 
@@ -156,6 +156,7 @@ class ingester {
         }
       }
     }
+    this.transactions.get(id).needed_files = needed_files;
     return [...needed_files].map(JSON.parse);
   }
 }

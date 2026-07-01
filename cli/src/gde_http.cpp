@@ -6,6 +6,7 @@
 #include <fstream>
 #include <ranges>
 #include <sstream>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -48,7 +49,9 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
 
   if (res && (res->status == 200 || res->status == 201)) {
     std::cout << "Successfully pushed" << std::endl;
-    std::cout << res->body << std::endl;
+
+    this->send_files(res->body);
+
   } else {
     std::cerr << "Failed to push commit" << std::endl;
     if (res)
@@ -212,4 +215,25 @@ json parse_cached_edit_script_to_json(const std::string &commit_hash,
   }
 
   return script_json;
+}
+
+void graph_differencing_engine::send_files(std::string tx_body) {
+
+  json j = json::parse(tx_body);
+
+  std::vector<std::string> target_files;
+
+  std::string tx_id = j["id"];
+  json file_array = j["needed_files"];
+
+  for (const auto row : file_array) {
+    std::string target_path =
+        CACHE_DIR + std::string("/") + row["hash"].get<std::string>() +
+        std::string("/files/") + row["file"].get<std::string>();
+    target_files.push_back(target_path);
+  }
+
+  for (const auto target : target_files) {
+    std::cout << target << std::endl;
+  }
 }
