@@ -20,11 +20,12 @@ CREATE TABLE IF NOT EXISTS files (
 );
 
 CREATE TABLE IF NOT EXISTS modules (
-    id UUID PRIMARY KEY,
-    name TEXT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
     file_id UUID NOT NULL,
     merkle_hash TEXT NOT NULL,
-    hash TEXT NOT NULL
+    hash TEXT NOT NULL,
+    last_touched_commit_hash TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS edges (
@@ -35,8 +36,9 @@ CREATE TABLE IF NOT EXISTS edges (
 
 CREATE TABLE IF NOT EXISTS commits (
     id TEXT PRIMARY KEY,
+    parent_commit TEXT,
     timestamp TIMESTAMP NOT NULL,
-    commit_by UUID NOT NULL
+    commit_by UUID
 );
 
 CREATE TYPE edit_type AS ENUM ('update', 'add', 'disconnect', 'move');
@@ -46,8 +48,8 @@ CREATE TABLE IF NOT EXISTS edit_actions (
     commit_id TEXT NOT NULL,
     index_n INT NOT NULL,
     action edit_type NOT NULL,
-    old_module UUID,
-    new_module UUID,
-    old_parent UUID,
-    new_parent UUID
+    old_module TEXT,
+    new_module TEXT,
+    old_parent TEXT,
+    new_parent TEXT
 );

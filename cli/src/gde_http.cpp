@@ -18,8 +18,11 @@ using namespace std::this_thread;
 using namespace std::chrono;
 using json = nlohmann::json;
 
+// push logic
 void graph_differencing_engine::gde_push(Authenticator &auth) {
+  // make a request for the commits the server has
   std::vector<std::string> repo_commits = this->fetch_origin_commits(auth);
+  // see what commits we have that the server doesnt, this returns them in order
   std::vector<std::string> needed_commits = this->commits_to_send(repo_commits);
 
   if (needed_commits.empty()) {
@@ -32,11 +35,13 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
 
   json all_commits_payload = json::array();
 
+  // for all commits
   for (const std::string &commit_hash : needed_commits) {
     std::cout << "Pushing commit: " << commit_hash << std::endl;
 
     std::string parent_commit;
 
+    // parse the edit script and graph to be pushed
     json edit_script =
         parse_cached_edit_script_to_json(commit_hash, parent_commit);
     json graph_data = parse_cached_graph_to_json(commit_hash);
@@ -49,6 +54,7 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
     all_commits_payload.push_back(payload);
   }
 
+  // send our all commits dump
   std::string push_data = all_commits_payload.dump();
   auto res =
       cli.Post("/transactions/push", headers, push_data, "application/json");
@@ -56,6 +62,8 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
   if (res && (res->status == 200 || res->status == 201)) {
     std::cout << "Successfully pushed" << std::endl;
 
+    // next step of multipart transaction, send the associated files with the
+    // commit
     this->send_files(auth, res->body);
 
   } else {
@@ -95,7 +103,7 @@ graph_differencing_engine::fetch_origin_commits(Authenticator &auth) {
   std::sort(indices.begin(), indices.end(),
             [&](size_t a, size_t b) { return timestamps[a] < timestamps[b]; });
 
-  std::vector<std::string> sorted_commits;
+  std::vector<std::string> sorted_commits(commits.size(), "beef");
 
   for (size_t i = 0; i < indices.size(); ++i) {
     sorted_commits[i] = commits[indices[i]];
@@ -107,25 +115,73 @@ graph_differencing_engine::fetch_origin_commits(Authenticator &auth) {
 std::vector<std::string> graph_differencing_engine::commits_to_send(
     std::vector<std::string> &repo_commits) {
 
-  std::unordered_set<std::string> repo_commits_set;
-  std::vector<std::string> needed_commits;
-
-  repo_commits_set.insert_range(repo_commits);
+  std::unordered_set<std::string> repo_commits_set(repo_commits.begin(),
+                                                   repo_commits.end());
+  std::vector<std::string> raw_needed;
 
   if (fs::exists(CACHE_DIR) && fs::is_directory(CACHE_DIR)) {
     for (const auto &entry : fs::directory_iterator(CACHE_DIR)) {
       if (fs::is_directory(entry)) {
-
         std::string commit_name = entry.path().filename().string();
-
         if (!repo_commits_set.contains(commit_name)) {
-          needed_commits.push_back(commit_name);
+          raw_needed.push_back(commit_name);
         }
       }
     }
   }
 
-  return needed_commits;
+  if (raw_needed.empty())
+    return {};
+
+  std::unordered_map<std::string, std::vector<std::string>> adj;
+  std::unordered_map<std::string, int> in_degree;
+  std::unordered_set<std::string> needed_set(raw_needed.begin(),
+                                             raw_needed.end());
+
+  for (const std::string &commit : raw_needed) {
+    if (!in_degree.contains(commit))
+      in_degree[commit] = 0;
+
+    std::string parent_commit;
+    parse_cached_edit_script_to_json(commit, parent_commit);
+
+    if (!parent_commit.empty() && needed_set.contains(parent_commit)) {
+      adj[parent_commit].push_back(commit);
+      in_degree[commit]++;
+    }
+  }
+
+  std::queue<std::string> q;
+  for (const auto &[commit, deg] : in_degree) {
+    if (deg == 0) {
+      q.push(commit);
+    }
+  }
+
+  std::vector<std::string> sorted_commits;
+  while (!q.empty()) {
+    std::string curr = q.front();
+    q.pop();
+    sorted_commits.push_back(curr);
+
+    for (const std::string &child : adj[curr]) {
+      in_degree[child]--;
+      if (in_degree[child] == 0) {
+        q.push(child);
+      }
+    }
+  }
+
+  if (sorted_commits.size() < raw_needed.size()) {
+    std::unordered_set<std::string> added(sorted_commits.begin(),
+                                          sorted_commits.end());
+    for (const std::string &c : raw_needed) {
+      if (!added.contains(c))
+        sorted_commits.push_back(c);
+    }
+  }
+
+  return sorted_commits;
 }
 
 json parse_cached_graph_to_json(const std::string &commit_hash) {
@@ -279,6 +335,11 @@ void graph_differencing_engine::send_files(Authenticator &auth,
       retries = 0;
     } else if (res && res->status == 201 && i == target_files.size() - 1) {
       std::cout << "Push finished and successful" << std::endl;
+    } else if (res && res->status == 422) {
+      std::cout << "All files successfully sent but failed to carry out edit "
+                   "actions and/or finalize transaction."
+                << std::endl;
+      return;
     } else {
       if (retries == 5) {
         std::cout << "Attempted to push file 5 times, cannot push" << std::endl;
