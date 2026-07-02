@@ -10,6 +10,8 @@ const router = express.Router();
 
 router.use(express.json());
 
+const ingesterInstance = new ingester();
+
 router.get("/commits", async (req, res) => {
   try {
     const commits = await pool.query("SELECT * FROM commits;");
@@ -23,7 +25,6 @@ router.get("/commits", async (req, res) => {
 router.post("/push", async (req, res) => {
   try {
     const commitsArray = req.body;
-    const ingesterInstance = new ingester();
 
     const trans_id = uuidv4();
 
@@ -42,6 +43,19 @@ router.post("/push", async (req, res) => {
   } catch (err) {
     console.error("Error during push ingestion:", err);
     res.status(500).json({ error: "Failed to process commits." });
+  }
+});
+
+router.post("/file-transfer", async (req, res) => {
+  try {
+    const { tx_id, file, hash } = req.query;
+
+    const response = await ingesterInstance.push_file(tx_id, file, hash, req);
+
+    res.sendStatus(response);
+  } catch (err) {
+    console.error("Error during file ingestion:", err);
+    res.status(500).json({ error: "Failed to process files." });
   }
 });
 

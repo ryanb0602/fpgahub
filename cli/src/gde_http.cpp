@@ -1,15 +1,21 @@
 #include "../include/graph_differencing_engine.h"
 
 #include "../include/json.hpp"
+#include "httplib.h"
 #include <filesystem>
 
+#include <chrono>
 #include <fstream>
 #include <ranges>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
+using namespace std::this_thread;
+using namespace std::chrono;
 using json = nlohmann::json;
 
 void graph_differencing_engine::gde_push(Authenticator &auth) {
@@ -50,7 +56,7 @@ void graph_differencing_engine::gde_push(Authenticator &auth) {
   if (res && (res->status == 200 || res->status == 201)) {
     std::cout << "Successfully pushed" << std::endl;
 
-    this->send_files(res->body);
+    this->send_files(auth, res->body);
 
   } else {
     std::cerr << "Failed to push commit" << std::endl;
@@ -217,13 +223,17 @@ json parse_cached_edit_script_to_json(const std::string &commit_hash,
   return script_json;
 }
 
-void graph_differencing_engine::send_files(std::string tx_body) {
+void graph_differencing_engine::send_files(Authenticator &auth,
+                                           std::string tx_body) {
 
   json j = json::parse(tx_body);
 
   std::vector<std::string> target_files;
 
-  std::string tx_id = j["id"];
+  std::vector<std::string> filenames;
+  std::vector<std::string> hashes;
+
+  std::string tx_id = j["id"].get<std::string>();
   json file_array = j["needed_files"];
 
   for (const auto row : file_array) {
@@ -231,9 +241,60 @@ void graph_differencing_engine::send_files(std::string tx_body) {
         CACHE_DIR + std::string("/") + row["hash"].get<std::string>() +
         std::string("/files/") + row["file"].get<std::string>();
     target_files.push_back(target_path);
+    filenames.push_back(row["file"].get<std::string>());
+    hashes.push_back(row["hash"].get<std::string>());
   }
 
-  for (const auto target : target_files) {
-    std::cout << target << std::endl;
+  httplib::Client cli(API_BASE_URL, API_PORT);
+  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
+
+  int retries = 0;
+
+  for (int i = 0; i < target_files.size(); i++) {
+
+    std::ifstream ifs(target_files[i], std::ios::binary);
+    std::ostringstream ss;
+    ss << ifs.rdbuf();
+    std::string file_data = ss.str();
+
+    std::string route = "/transactions/file-transfer?tx_id=" + tx_id +
+                        "&file=" + filenames[i] + "&hash=" + hashes[i];
+    httplib::UploadProgress progress_callback = [&](uint64_t current,
+                                                    uint64_t total) {
+      if (total > 0) {
+        double percentage = (static_cast<double>(current) / total) * 100.0;
+        std::cout << "\rProgress: " << std::fixed << std::setprecision(1)
+                  << percentage << "% (" << current << "/" << total << " bytes)"
+                  << std::flush;
+      }
+      return true;
+    };
+
+    auto res = cli.Post(route, headers, file_data.data(), file_data.size(),
+                        "application/octet-stream", progress_callback);
+    std::cout << std::endl;
+
+    if (res && res->status == 200) {
+      std::cout << "Successfully sent file..." << std::endl;
+      retries = 0;
+    } else if (res && res->status == 201 && i == target_files.size() - 1) {
+      std::cout << "Push finished and successful" << std::endl;
+    } else {
+      if (retries == 5) {
+        std::cout << "Attempted to push file 5 times, cannot push" << std::endl;
+        return;
+      }
+
+      std::cout << "Error submitting file... retrying in 5 secs..."
+                << std::endl;
+
+      if (res) {
+        std::cout << "Error: " << res->status << std::endl;
+      }
+      i--;
+      retries++;
+      sleep_for(seconds(5));
+      continue;
+    }
   }
 }

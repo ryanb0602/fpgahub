@@ -2,6 +2,9 @@ const { v4: uuidv4 } = require("uuid");
 const minioClient = require("./minio");
 const pool = require("./db");
 
+const dataBucket = "data";
+const tmpBucket = "tmp";
+
 class graph_module {
   constructor(id, name, file_id, merkle_hash, hash) {
     this.id = id;
@@ -158,6 +161,55 @@ class ingester {
     }
     this.transactions.get(id).needed_files = needed_files;
     return [...needed_files].map(JSON.parse);
+  }
+
+  async push_file(tx_id, file, hash, file_blob) {
+    const tx = this.transactions.get(tx_id);
+    if (!tx) return 403;
+
+    const fileObjString = JSON.stringify({ file: file, hash: hash });
+    if (!tx.needed_files.has(fileObjString)) {
+      return 406;
+    }
+
+    const tmpExists = await minioClient
+      .bucketExists(tmpBucket)
+      .catch(() => false);
+    if (!tmpExists) await minioClient.makeBucket(tmpBucket);
+
+    const store_name = uuidv4();
+
+    try {
+      await minioClient.putObject("tmp", store_name, file_blob);
+    } catch (err) {
+      return 500;
+    }
+
+    if (!this.transactions.get(tx_id).have_files) {
+      this.transactions.get(tx_id).have_files = [];
+    }
+
+    this.transactions
+      .get(tx_id)
+      .have_files.push({ file: file, hash: hash, stored_name: store_name });
+
+    //check if we have everything we need, copy and finish if we do
+    if (tx.have_files.length === tx.needed_files.size) {
+      try {
+        await this.finalizeTransaction(tx_id);
+        return 201;
+      } catch (err) {
+        console.error("Failed to finalize transaction:", err);
+        return 500;
+      }
+    }
+
+    return 200;
+  }
+
+  async finalizeTransaction(tx_id) {
+    console.log("Finished transaction: ");
+    console.log(tx_id);
   }
 }
 
