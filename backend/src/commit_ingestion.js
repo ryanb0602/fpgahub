@@ -329,14 +329,16 @@ class ingester {
               commit.id,
             );
 
-            await client.query(
+            const modRes = await client.query(
               `INSERT INTO modules (id, name, file_id, merkle_hash, hash, last_touched_commit_hash) 
                VALUES ($1, $2, $3, $4, $5, $6)
                ON CONFLICT (name) DO UPDATE SET 
                  file_id = EXCLUDED.file_id,
                  merkle_hash = EXCLUDED.merkle_hash,
                  hash = EXCLUDED.hash,
-                 last_touched_commit_hash = EXCLUDED.last_touched_commit_hash`,
+                 last_touched_commit_hash = EXCLUDED.last_touched_commit_hash
+              RETURNING id
+              `,
               [
                 new_id,
                 new_mod.name,
@@ -346,6 +348,8 @@ class ingester {
                 commit.id,
               ],
             );
+
+            const authoritativeModId = modRes.rows[0].id;
 
             if (edit_action.new_parent || edit_action.new_parent_name) {
               const parent_module = commit.modules.find(
@@ -366,7 +370,7 @@ class ingester {
                   await client.query(
                     `INSERT INTO edges (id, from_id, to_id) VALUES ($1, $2, $3)
                      ON CONFLICT DO NOTHING`,
-                    [uuidv4(), rows[0].id, new_id],
+                    [uuidv4(), rows[0].id, authoritativeModId],
                   );
                 }
               }

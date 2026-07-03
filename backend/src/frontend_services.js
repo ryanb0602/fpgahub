@@ -1,3 +1,4 @@
+/*
 const express = require("express");
 const router = express.Router();
 
@@ -138,6 +139,103 @@ router.get("/graph", async (req, res) => {
 		console.error(err);
 		res.status(500).json({ error: "Internal Server Error" });
 	}
+});
+
+module.exports = router;
+*/
+
+const express = require("express");
+const router = express.Router();
+const pool = require("./db");
+const minioClient = require("./minio");
+
+router.use(express.json());
+
+// 1. MODERNIZED GRAPH ENDPOINT
+router.get("/graph", async (req, res) => {
+  try {
+    // Fetch all hardware AST modules with their rich version metadata
+    const nodesResult = await pool.query(
+      `SELECT m.id, m.name, m.hash, m.merkle_hash, m.last_touched_commit_hash, f.filename 
+       FROM modules m
+       JOIN files f ON m.file_id = f.id`,
+    );
+
+    // Join edges against the modules table to map UUIDs (from_id/to_id) back to string names
+    const edgesResult = await pool.query(
+      `SELECT e.id, m1.name AS source, m2.name AS target
+       FROM edges e
+       JOIN modules m1 ON e.from_id = m1.id
+       JOIN modules m2 ON e.to_id = m2.id`,
+    );
+
+    // Format for D3.js, Cytoscape, or React Flow
+    const nodes = nodesResult.rows.map((r) => ({
+      id: r.name, // String ID used by visualization libraries for link resolution
+      uuid: r.id,
+      filename: r.filename,
+      hash: r.hash,
+      merkle_hash: r.merkle_hash,
+      last_commit: r.last_touched_commit_hash,
+    }));
+
+    const links = edgesResult.rows.map((r) => ({
+      source: r.source,
+      target: r.target,
+    }));
+
+    res.json({ nodes, links });
+  } catch (err) {
+    console.error("Error fetching graph:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 2. MODERNIZED SEARCH ENDPOINT (Queries 'modules' table directly)
+router.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q || q.trim().length === 0) return res.json([]);
+
+  const query = q.trim();
+
+  try {
+    const result = await pool.query(
+      `SELECT name AS module,
+         CASE WHEN LOWER(name) = LOWER($1) THEN 3
+              WHEN name ILIKE $1 || '%' THEN 2
+              ELSE 1 END AS rank
+       FROM modules
+       WHERE name ILIKE '%' || $1 || '%'
+       ORDER BY rank DESC, name ASC
+       LIMIT 20`,
+      [query],
+    );
+
+    res.json(result.rows.map((r) => r.module));
+  } catch (err) {
+    console.error("Error during search:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 3. MODERNIZED USER MODULES ENDPOINT
+router.get("/mymodules", async (req, res) => {
+  const userUUID = req.uuid;
+  try {
+    // Find modules touched by commits authored by this user
+    const modules = await pool.query(
+      `SELECT DISTINCT m.name 
+       FROM modules m
+       JOIN commits c ON m.last_touched_commit_hash = c.id
+       WHERE c.commit_by = $1`,
+      [userUUID],
+    );
+
+    res.json(modules.rows.map((r) => r.name));
+  } catch (err) {
+    console.error("Error fetching user modules:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 module.exports = router;
