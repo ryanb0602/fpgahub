@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h>
+#include <zip.h>
 
 namespace fs = std::filesystem;
 
@@ -376,6 +377,7 @@ void graph_differencing_engine::gde_pull(Authenticator &auth,
   json edges = j["edges"];
 
   std::unordered_map<std::string, graph::module *> module_map;
+  std::unordered_map<std::string, std::string> file_id_to_name;
 
   for (const auto &row : modules) {
     graph::module *m = new graph::module;
@@ -383,8 +385,10 @@ void graph_differencing_engine::gde_pull(Authenticator &auth,
     m->name = row["name"];
     m->id = row["id"];
     m->hash = row["hash"];
-    m->file = row["file_id"];
+    m->file = row["filename"];
     m->merk_hash = row["merkle_hash"];
+
+    file_id_to_name[row["file_id"]] = m->file;
 
     module_map[m->id] = m;
     new_graph.modules.push_back(m);
@@ -394,11 +398,65 @@ void graph_differencing_engine::gde_pull(Authenticator &auth,
     graph::edge *e = new graph::edge;
     e->from = module_map[row["from_id"]];
     e->to = module_map[row["to_id"]];
+    new_graph.edges.push_back(e);
   }
 
-  for (const graph::module *m : new_graph.modules) {
-    std::cout << m->name << std::endl;
+  for (const graph::edge *e : new_graph.edges) {
+    if (e != nullptr && e->from != nullptr && e->to != nullptr) {
+      e->from->child_interfaces.push_back(e->to);
+    }
   }
+
+  fs::create_directories("temp");
+
+  std::ofstream out("temp/downloaded_bundle.zip", std::ios::binary);
+  if (!out) {
+    std::cerr << "Failed to open file for writing.\n";
+    return;
+  }
+
+  res = cli.Get("/transactions/pull/files?top=" + root_name, headers,
+                [&](const char *data, size_t data_length) {
+                  out.write(data, data_length);
+                  return true;
+                });
+
+  out.close();
+
+  if (res && res->status == 200) {
+    std::cout << "Successfully downloaded file bundle zip!\n";
+  } else {
+    std::cerr << "Download failed with status: "
+              << (res ? std::to_string(res->status) : "Connection error")
+              << "\n";
+  }
+
+  int err = 0;
+  zip_t *za = zip_open("temp/downloaded_bundle.zip", ZIP_RDONLY, &err);
+  for (int i = 0; i < zip_get_num_entries(za, 0); i++) {
+    struct zip_stat st;
+    zip_stat_index(za, i, 0, &st);
+
+    if (std::string(st.name).back() == '/')
+      continue;
+
+    zip_file_t *zf = zip_fopen_index(za, i, 0);
+    std::vector<char> buf(st.size);
+    zip_fread(zf, buf.data(), st.size);
+    std::ofstream(st.name, std::ios::binary).write(buf.data(), st.size);
+    zip_fclose(zf);
+  }
+
+  zip_close(za);
+
+  for (const auto &[key, name] : file_id_to_name) {
+    fs::rename(key, name);
+  }
+
+  fs::remove_all("temp");
+
+  new_graph.write_to_file(root_name);
 }
+
 void graph_differencing_engine::gde_pull_ip(Authenticator &auth,
                                             std::string &root_name) {}

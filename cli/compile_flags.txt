@@ -6,3 +6,4 @@
 -lfmt
 -ltomlplusplus
 -pthread
+-lzip
