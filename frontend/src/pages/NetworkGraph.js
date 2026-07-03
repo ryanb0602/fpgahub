@@ -1,3 +1,4 @@
+// src/pages/NetworkGraph.js
 import React, {
   useEffect,
   useState,
@@ -8,6 +9,8 @@ import React, {
 import ForceGraph2D from "react-force-graph-2d";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DashTopBar } from "../components/DashTopBar";
+// 1. IMPORT THE NEW COMPONENT
+import { CommitDiffSelector } from "../components/CommitDiffSelector";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
@@ -29,6 +32,9 @@ export const NetworkGraph = () => {
   const pendingZoomRef = useRef(initialHighlight || null);
   const fgRef = useRef();
 
+  // 2. STATE FOR ACTIVE AST DIFF
+  const [activeDiff, setActiveDiff] = useState(null);
+
   // Optimized Filter Logic
   const processedData = useMemo(() => {
     if (!graphData.nodes || graphData.nodes.length === 0) {
@@ -38,7 +44,6 @@ export const NetworkGraph = () => {
     const validNodeIds = new Set(graphData.nodes.map((n) => String(n.id)));
 
     const filteredLinks = graphData.links.filter((link) => {
-      // D3 transforms IDs into objects during simulation. We handle both cases.
       const s =
         typeof link.source === "object" ? link.source.id : String(link.source);
       const t =
@@ -48,7 +53,6 @@ export const NetworkGraph = () => {
       const targetExists = validNodeIds.has(t);
 
       if (!sourceExists || !targetExists) {
-        // This will tell you exactly why the edge is missing for your second tree
         console.warn(
           `Link rejected: Source(${s}): ${sourceExists}, Target(${t}): ${targetExists}`,
         );
@@ -98,7 +102,6 @@ export const NetworkGraph = () => {
 
   useEffect(() => {
     if (!fgRef.current || processedData.nodes.length === 0) return;
-    // Stronger link distance helps separated trees stay distinct
     fgRef.current.d3Force("link").distance(50);
     fgRef.current.d3Force("charge").strength(-150);
     fgRef.current.d3ReheatSimulation();
@@ -125,6 +128,66 @@ export const NetworkGraph = () => {
     [processedData.nodes],
   );
 
+  // 3. HELPER FUNCTION TO COLOR NODES BY AST DIFF ACTION
+  const getNodeStyle = useCallback(
+    (nodeId, isHighlighted) => {
+      if (isHighlighted) {
+        return {
+          fill: "rgba(180, 70, 0, 0.95)",
+          stroke: "rgba(255, 200, 80, 1)",
+          text: "rgba(255, 230, 150, 1)",
+        };
+      }
+
+      if (!activeDiff) {
+        // Default Orange Theme
+        return {
+          fill: "rgba(59, 18, 5, 0.9)",
+          stroke: "rgba(255, 124, 57, 0.8)",
+          text: "rgba(255, 255, 255, 0.9)",
+        };
+      }
+
+      if (activeDiff.add && activeDiff.add.includes(nodeId)) {
+        return {
+          fill: "rgba(6, 95, 70, 0.9)", // 🟢 Green
+          stroke: "rgba(16, 185, 129, 1)",
+          text: "#a7f3d0",
+        };
+      }
+      if (activeDiff.update && activeDiff.update.includes(nodeId)) {
+        return {
+          fill: "rgba(30, 58, 138, 0.9)", // 🔵 Blue
+          stroke: "rgba(59, 130, 246, 1)",
+          text: "#bfdbfe",
+        };
+      }
+      if (activeDiff.move && activeDiff.move.includes(nodeId)) {
+        return {
+          fill: "rgba(88, 28, 135, 0.9)", // 🟣 Purple
+          stroke: "rgba(168, 85, 247, 1)",
+          text: "#e9d5ff",
+        };
+      }
+      if (activeDiff.disconnect && activeDiff.disconnect.includes(nodeId)) {
+        return {
+          fill: "rgba(127, 29, 29, 0.9)", // 🔴 Red
+          stroke: "rgba(239, 68, 68, 1)",
+          text: "#fecaca",
+        };
+      }
+
+      // Untouched nodes fade into background slightly when a diff is active
+      return {
+        fill: "rgba(30, 10, 5, 0.4)",
+        stroke: "rgba(100, 50, 25, 0.3)",
+        text: "rgba(180, 180, 180, 0.5)",
+      };
+    },
+    [activeDiff],
+  );
+
+  // 4. UPDATED NODE RENDERER WITH DYNAMIC DIFF STYLING
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
       const isHighlighted = node.id === highlightedNode;
@@ -136,17 +199,16 @@ export const NetworkGraph = () => {
       const rectWidth = textWidth + fontSize * 0.8 * 2;
       const rectHeight = fontSize + fontSize * 0.5 * 2;
 
+      // Grab dynamic style based on commit diff
+      const style = getNodeStyle(node.id, isHighlighted);
+
       if (isHighlighted) {
         ctx.shadowColor = "rgba(255, 180, 80, 0.9)";
         ctx.shadowBlur = Math.max(12 / globalScale, 4);
       }
 
-      ctx.fillStyle = isHighlighted
-        ? "rgba(180, 70, 0, 0.95)"
-        : "rgba(59, 18, 5, 0.9)";
-      ctx.strokeStyle = isHighlighted
-        ? "rgba(255, 200, 80, 1)"
-        : "rgba(255, 124, 57, 0.8)";
+      ctx.fillStyle = style.fill;
+      ctx.strokeStyle = style.stroke;
       ctx.lineWidth = isHighlighted
         ? Math.max(2 / globalScale, 1)
         : Math.max(1 / globalScale, 0.5);
@@ -163,9 +225,7 @@ export const NetworkGraph = () => {
       ctx.stroke();
 
       ctx.shadowColor = "transparent";
-      ctx.fillStyle = isHighlighted
-        ? "rgba(255, 230, 150, 1)"
-        : "rgba(255, 255, 255, 0.9)";
+      ctx.fillStyle = style.text;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(label, node.x, node.y);
@@ -173,7 +233,7 @@ export const NetworkGraph = () => {
       node.__rectWidth = rectWidth;
       node.__rectHeight = rectHeight;
     },
-    [highlightedNode],
+    [highlightedNode, getNodeStyle],
   );
 
   const nodePointerAreaPaint = useCallback((node, color, ctx) => {
@@ -196,6 +256,16 @@ export const NetworkGraph = () => {
           overflow: "hidden",
         }}
       >
+        {/* 5. ADD THE COMMIT DIFF SELECTOR OVERLAY */}
+        <CommitDiffSelector
+          onDiffLoaded={(diffData) => {
+            setActiveDiff(diffData);
+          }}
+          onClearDiff={() => {
+            setActiveDiff(null);
+          }}
+        />
+
         {loading && (
           <div
             style={{

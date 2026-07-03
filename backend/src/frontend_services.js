@@ -238,4 +238,69 @@ router.get("/mymodules", async (req, res) => {
   }
 });
 
+// 1. Fetch chronological list of commits for the dropdown
+router.get("/commits-list", async (req, res) => {
+  try {
+    const commits = await pool.query(
+      `SELECT id, timestamp, commit_by 
+       FROM commits 
+       ORDER BY timestamp DESC`,
+    );
+    res.json(commits.rows);
+  } catch (err) {
+    console.error("Error fetching commits:", err);
+    res.status(500).json({ error: "Failed to fetch commits list." });
+  }
+});
+
+// 2. Fetch AST edit script actions for a specific commit
+router.get("/commit-diff/:commit_id", async (req, res) => {
+  const { commit_id } = req.params;
+
+  try {
+    // Grab all GumTree AST actions recorded for this commit
+    const actions = await pool.query(
+      `SELECT id, index_n, action, old_module, new_module, old_parent, new_parent 
+       FROM edit_actions 
+       WHERE commit_id = $1 
+       ORDER BY index_n ASC`,
+      [commit_id],
+    );
+
+    // Group affected modules by action type for easy frontend styling
+    const diffSummary = {
+      commit_id,
+      add: new Set(),
+      update: new Set(),
+      move: new Set(),
+      disconnect: new Set(),
+      raw_actions: actions.rows,
+    };
+
+    for (const row of actions.rows) {
+      const targetModule = row.new_module || row.old_module;
+      if (!targetModule) continue;
+
+      if (row.action === "add") diffSummary.add.add(targetModule);
+      else if (row.action === "update") diffSummary.update.add(targetModule);
+      else if (row.action === "move") diffSummary.move.add(targetModule);
+      else if (row.action === "disconnect")
+        diffSummary.disconnect.add(targetModule);
+    }
+
+    // Convert Sets to Arrays for JSON serialization
+    res.json({
+      commit_id,
+      add: Array.from(diffSummary.add),
+      update: Array.from(diffSummary.update),
+      move: Array.from(diffSummary.move),
+      disconnect: Array.from(diffSummary.disconnect),
+      raw_actions: actions.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching commit diff:", err);
+    res.status(500).json({ error: "Failed to fetch commit diff." });
+  }
+});
+
 module.exports = router;

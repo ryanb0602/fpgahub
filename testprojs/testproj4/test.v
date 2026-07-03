@@ -8,9 +8,15 @@ module math_unit(input a, input b, output c);
     assign c = a + b + 1; // <--- Changed! 
 endmodule
 
+module TEST(output a, input b);
+    assign a = ~b;
+endmodule
+
 //test for addition on an addition
 module test_test_test(output a, input b);
-    assign a = !b;
+    wire z;
+    TEST u1(.a(z), .b(b));
+    assign a = !z;
 endmodule
 
 // 3. THE INSERTION (Completely new module)
@@ -22,7 +28,9 @@ endmodule
 
 // ROOT MODULE (Hash changes because its children changed)
 module top(input in1, input in2, output out1, output out2, output out3);
+    wire a;
     anchor_module  u1(.w(in1), .x(in2), .y(out1));
     math_unit      u2(.a(in1), .b(in2), .c(out2));
     shiny_new_unit u4(.j(in1), .k(out3));
-endmodule
+    test_test_test u3(.a(a), .b(in2));
+    endmodule
