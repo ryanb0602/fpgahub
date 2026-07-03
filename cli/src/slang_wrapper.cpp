@@ -102,13 +102,23 @@ void slang_wrapper::GraphBuilder::handle(
 
   // create back edge for this node
   if (!this->parent_modules.empty()) {
-    graph::edge *new_edge = new graph::edge;
-    new_edge->from = this->parent_modules.top();
-    new_edge->to = new_module;
+    graph::module *parent = this->parent_modules.top();
 
-    this->FPGAHub_tree->edges.push_back(new_edge);
+    // Check if an interface to this module name already exists from the parent
+    bool already_exists = std::any_of(
+        parent->child_interfaces.begin(), parent->child_interfaces.end(),
+        [&](const graph::module *existing_child) {
+          return existing_child->name == new_module->name;
+        });
 
-    new_edge->from->child_interfaces.push_back(new_module);
+    if (!already_exists) {
+      graph::edge *new_edge = new graph::edge;
+      new_edge->from = parent;
+      new_edge->to = new_module;
+
+      this->FPGAHub_tree->edges.push_back(new_edge);
+      parent->child_interfaces.push_back(new_module);
+    }
   }
 
   // here is where you would calculate the canonical structure hash for the
