@@ -59,4 +59,39 @@ router.post("/file-transfer", async (req, res) => {
   }
 });
 
+router.get("/pull", async (req, res) => {
+  try {
+    const topName = req.query.top;
+    const modules = await pool.query(
+      `WITH RECURSIVE dependency_graph AS (
+    SELECT id, name, file_id, merkle_hash, hash, last_touched_commit_hash
+    FROM modules
+    WHERE name = $1
+    
+    UNION
+    
+    SELECT m.id, m.name, m.file_id, m.merkle_hash, m.hash, m.last_touched_commit_hash
+    FROM modules m
+    JOIN edges e ON m.id = e.to_id
+    JOIN dependency_graph dg ON e.from_id = dg.id
+)
+SELECT * FROM dependency_graph;`,
+      [topName],
+    );
+
+    const moduleIds = modules.rows.map((m) => m.id);
+    const edges = await pool.query(
+      "SELECT * FROM edges WHERE from_id = ANY($1)",
+      [moduleIds],
+    );
+
+    res.json({
+      modules: modules.rows,
+      edges: edges.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to process pull." });
+  }
+});
+
 module.exports = router;

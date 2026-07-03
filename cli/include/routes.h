@@ -10,5 +10,6 @@ void logoutUser_route(Authenticator &auth);
 void print_edit_script(std::string &root_module);
 void commit_edit_script(std::string &root_module);
 void gde_push(Authenticator &auth);
+void gde_pull(Authenticator &auth, std::string &root_module);
 
 #endif

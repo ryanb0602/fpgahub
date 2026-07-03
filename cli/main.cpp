@@ -44,6 +44,12 @@ int main(int argc, char **argv) {
 
   push->callback([&]() { gde_push(auth); });
 
+  auto pull = app.add_subcommand("pull", "Pull from module");
+
+  pull->add_option("module_name", root_module, "Name of the module to pull")
+      ->required();
+  pull->callback([&]() { gde_pull(auth, root_module); });
+
   CLI11_PARSE(app, argc, argv);
 
   return 0;

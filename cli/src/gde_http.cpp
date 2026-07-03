@@ -359,3 +359,46 @@ void graph_differencing_engine::send_files(Authenticator &auth,
     }
   }
 }
+
+void graph_differencing_engine::gde_pull(Authenticator &auth,
+                                         std::string &root_name) {
+
+  httplib::Client cli(API_BASE_URL, API_PORT);
+  httplib::Headers headers = {{AUTH_HEADER_KEY, auth.pullAuthToken()}};
+
+  auto res = cli.Get("/transactions/pull?top=" + root_name, headers);
+
+  json j = json::parse(res->body);
+
+  graph new_graph;
+
+  json modules = j["modules"];
+  json edges = j["edges"];
+
+  std::unordered_map<std::string, graph::module *> module_map;
+
+  for (const auto &row : modules) {
+    graph::module *m = new graph::module;
+
+    m->name = row["name"];
+    m->id = row["id"];
+    m->hash = row["hash"];
+    m->file = row["file_id"];
+    m->merk_hash = row["merkle_hash"];
+
+    module_map[m->id] = m;
+    new_graph.modules.push_back(m);
+  }
+
+  for (const auto &row : edges) {
+    graph::edge *e = new graph::edge;
+    e->from = module_map[row["from_id"]];
+    e->to = module_map[row["to_id"]];
+  }
+
+  for (const graph::module *m : new_graph.modules) {
+    std::cout << m->name << std::endl;
+  }
+}
+void graph_differencing_engine::gde_pull_ip(Authenticator &auth,
+                                            std::string &root_name) {}

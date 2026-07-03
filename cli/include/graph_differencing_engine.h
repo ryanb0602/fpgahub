@@ -40,6 +40,9 @@ public:
 
   void gde_push(Authenticator &auth);
 
+  void gde_pull(Authenticator &auth, std::string &root_name);
+  void gde_pull_ip(Authenticator &auth, std::string &root_name);
+
 private:
   std::vector<std::string> fetch_origin_commits(Authenticator &auth);
   std::vector<std::string>

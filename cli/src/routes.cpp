@@ -90,3 +90,8 @@ void gde_push(Authenticator &auth) {
   graph_differencing_engine gde;
   gde.gde_push(auth);
 }
+
+void gde_pull(Authenticator &auth, std::string &root_name) {
+  graph_differencing_engine gde;
+  gde.gde_pull(auth, root_name);
+}
