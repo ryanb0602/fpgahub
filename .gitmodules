@@ -13,3 +13,9 @@
 [submodule "cli/tree-similarity"]
 	path = cli/tree-similarity
 	url = https://github.com/DatabaseGroup/tree-similarity.git
+[submodule "evaluation/corundum_test/corundum"]
+	path = evaluation/corundum_test/corundum
+	url = https://github.com/corundum/corundum.git
+[submodule "evaluation/open_titan/opentitan"]
+	path = evaluation/open_titan/opentitan
+	url = https://github.com/lowRISC/opentitan.git

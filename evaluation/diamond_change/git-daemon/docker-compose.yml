@@ -1,0 +1,9 @@
+services:
+  git-server:
+    build: .
+    container_name: git-daemon-server
+    restart: unless-stopped
+    ports:
+      - "9418:9418"
+    volumes:
+      - ./repos:/git

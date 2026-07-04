@@ -168,7 +168,9 @@ void graph_differencing_engine::FPGAHub_gumtree::bottom_up_phase() {
     bool t1_is_unmatched = (this->M.find(t1) == this->M.end());
     bool t1_has_matched_children = this->has_matched_children(t1);
 
-    if (t1_is_unmatched && t1_has_matched_children) {
+    bool t1_is_leaf = (this->sg_edge_map[t1->id].empty());
+
+    if (t1_is_unmatched && (t1_has_matched_children || t1_is_leaf)) {
 
       graph::module *t2 = this->find_candidate(t1, mapped_t2_nodes);
 
